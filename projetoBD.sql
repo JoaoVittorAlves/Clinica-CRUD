@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ecRYYZNoHffyu8nULQwDioY8x4vn9bdXVCgWd7xImWbNRMlhTsnn1BOXYLStgPq
+\restrict 3xiUUr2cMVfx6Ov11bYhYatnhIa9qDbl5nhAmAJXcefEIvZ27FHrTAAaa37iR7v
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -31,8 +31,8 @@ CREATE TABLE public.consulta (
     id integer NOT NULL,
     data date NOT NULL,
     hora time without time zone NOT NULL,
-    paciente_id integer NOT NULL,
-    medico_id integer NOT NULL
+    paciente_id integer,
+    profissional_id integer
 );
 
 
@@ -61,52 +61,15 @@ ALTER SEQUENCE public.consulta_id_seq OWNED BY public.consulta.id;
 
 
 --
--- Name: medico; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.medico (
-    id integer NOT NULL,
-    nome character varying(100) NOT NULL,
-    especialidade character varying(50) NOT NULL,
-    crm character varying(20) NOT NULL,
-    telefone character varying(20)
-);
-
-
-ALTER TABLE public.medico OWNER TO postgres;
-
---
--- Name: medico_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
---
-
-CREATE SEQUENCE public.medico_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE public.medico_id_seq OWNER TO postgres;
-
---
--- Name: medico_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
---
-
-ALTER SEQUENCE public.medico_id_seq OWNED BY public.medico.id;
-
-
---
 -- Name: paciente; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.paciente (
     id integer NOT NULL,
-    nome character varying(100) NOT NULL,
+    nome character varying(150) NOT NULL,
     idade integer NOT NULL,
-    cpf character varying(14) NOT NULL,
-    telefone character varying(20)
+    cpf character varying(11) NOT NULL,
+    telefone character varying(15)
 );
 
 
@@ -135,17 +98,47 @@ ALTER SEQUENCE public.paciente_id_seq OWNED BY public.paciente.id;
 
 
 --
+-- Name: profissional; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.profissional (
+    id integer NOT NULL,
+    nome character varying(150) NOT NULL,
+    especialidade character varying(50) NOT NULL,
+    registro character varying(60) NOT NULL,
+    telefone character varying(15)
+);
+
+
+ALTER TABLE public.profissional OWNER TO postgres;
+
+--
+-- Name: profissional_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.profissional_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.profissional_id_seq OWNER TO postgres;
+
+--
+-- Name: profissional_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.profissional_id_seq OWNED BY public.profissional.id;
+
+
+--
 -- Name: consulta id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.consulta ALTER COLUMN id SET DEFAULT nextval('public.consulta_id_seq'::regclass);
-
-
---
--- Name: medico id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.medico ALTER COLUMN id SET DEFAULT nextval('public.medico_id_seq'::regclass);
 
 
 --
@@ -156,18 +149,17 @@ ALTER TABLE ONLY public.paciente ALTER COLUMN id SET DEFAULT nextval('public.pac
 
 
 --
+-- Name: profissional id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.profissional ALTER COLUMN id SET DEFAULT nextval('public.profissional_id_seq'::regclass);
+
+
+--
 -- Data for Name: consulta; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.consulta (id, data, hora, paciente_id, medico_id) FROM stdin;
-\.
-
-
---
--- Data for Name: medico; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.medico (id, nome, especialidade, crm, telefone) FROM stdin;
+COPY public.consulta (id, data, hora, paciente_id, profissional_id) FROM stdin;
 \.
 
 
@@ -180,17 +172,18 @@ COPY public.paciente (id, nome, idade, cpf, telefone) FROM stdin;
 
 
 --
+-- Data for Name: profissional; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.profissional (id, nome, especialidade, registro, telefone) FROM stdin;
+\.
+
+
+--
 -- Name: consulta_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
 SELECT pg_catalog.setval('public.consulta_id_seq', 1, false);
-
-
---
--- Name: medico_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.medico_id_seq', 1, false);
 
 
 --
@@ -201,27 +194,18 @@ SELECT pg_catalog.setval('public.paciente_id_seq', 1, false);
 
 
 --
+-- Name: profissional_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.profissional_id_seq', 1, false);
+
+
+--
 -- Name: consulta consulta_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
 ALTER TABLE ONLY public.consulta
     ADD CONSTRAINT consulta_pkey PRIMARY KEY (id);
-
-
---
--- Name: medico medico_crm_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.medico
-    ADD CONSTRAINT medico_crm_key UNIQUE (crm);
-
-
---
--- Name: medico medico_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.medico
-    ADD CONSTRAINT medico_pkey PRIMARY KEY (id);
 
 
 --
@@ -241,11 +225,19 @@ ALTER TABLE ONLY public.paciente
 
 
 --
--- Name: consulta consulta_medico_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: profissional profissional_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.consulta
-    ADD CONSTRAINT consulta_medico_id_fkey FOREIGN KEY (medico_id) REFERENCES public.medico(id);
+ALTER TABLE ONLY public.profissional
+    ADD CONSTRAINT profissional_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: profissional profissional_registro_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.profissional
+    ADD CONSTRAINT profissional_registro_key UNIQUE (registro);
 
 
 --
@@ -253,12 +245,20 @@ ALTER TABLE ONLY public.consulta
 --
 
 ALTER TABLE ONLY public.consulta
-    ADD CONSTRAINT consulta_paciente_id_fkey FOREIGN KEY (paciente_id) REFERENCES public.paciente(id);
+    ADD CONSTRAINT consulta_paciente_id_fkey FOREIGN KEY (paciente_id) REFERENCES public.paciente(id) ON DELETE CASCADE;
+
+
+--
+-- Name: consulta consulta_profissional_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.consulta
+    ADD CONSTRAINT consulta_profissional_id_fkey FOREIGN KEY (profissional_id) REFERENCES public.profissional(id) ON DELETE CASCADE;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ecRYYZNoHffyu8nULQwDioY8x4vn9bdXVCgWd7xImWbNRMlhTsnn1BOXYLStgPq
+\unrestrict 3xiUUr2cMVfx6Ov11bYhYatnhIa9qDbl5nhAmAJXcefEIvZ27FHrTAAaa37iR7v
 
