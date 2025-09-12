@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3xiUUr2cMVfx6Ov11bYhYatnhIa9qDbl5nhAmAJXcefEIvZ27FHrTAAaa37iR7v
+\restrict 3vc3CHy4y8ThqBMj2HhQCHcS7Zfca7kWdcWCkkHzVDfcjcGec6r6A2bPqyLYaO8
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -24,25 +24,29 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: consulta; Type: TABLE; Schema: public; Owner: postgres
+-- Name: consultas; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.consulta (
+CREATE TABLE public.consultas (
     id integer NOT NULL,
-    data date NOT NULL,
-    hora time without time zone NOT NULL,
     paciente_id integer,
-    profissional_id integer
+    profissional_id integer,
+    data timestamp without time zone NOT NULL,
+    motivo text,
+    diagnostico text,
+    prescricao text,
+    status character varying(20) DEFAULT 'Agendada'::character varying,
+    CONSTRAINT consultas_status_check CHECK (((status)::text = ANY ((ARRAY['Agendada'::character varying, 'Realizada'::character varying, 'Cancelada'::character varying])::text[])))
 );
 
 
-ALTER TABLE public.consulta OWNER TO postgres;
+ALTER TABLE public.consultas OWNER TO postgres;
 
 --
--- Name: consulta_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: consultas_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
-CREATE SEQUENCE public.consulta_id_seq
+CREATE SEQUENCE public.consultas_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -51,35 +55,34 @@ CREATE SEQUENCE public.consulta_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.consulta_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.consultas_id_seq OWNER TO postgres;
 
 --
--- Name: consulta_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: consultas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
-ALTER SEQUENCE public.consulta_id_seq OWNED BY public.consulta.id;
+ALTER SEQUENCE public.consultas_id_seq OWNED BY public.consultas.id;
 
 
 --
--- Name: paciente; Type: TABLE; Schema: public; Owner: postgres
+-- Name: historico_consultas; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.paciente (
+CREATE TABLE public.historico_consultas (
     id integer NOT NULL,
-    nome character varying(150) NOT NULL,
-    idade integer NOT NULL,
-    cpf character varying(11) NOT NULL,
-    telefone character varying(15)
+    consulta_id integer,
+    alteracao text,
+    data_alteracao timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
-ALTER TABLE public.paciente OWNER TO postgres;
+ALTER TABLE public.historico_consultas OWNER TO postgres;
 
 --
--- Name: paciente_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: historico_consultas_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
-CREATE SEQUENCE public.paciente_id_seq
+CREATE SEQUENCE public.historico_consultas_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -88,35 +91,39 @@ CREATE SEQUENCE public.paciente_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.paciente_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.historico_consultas_id_seq OWNER TO postgres;
 
 --
--- Name: paciente_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: historico_consultas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
-ALTER SEQUENCE public.paciente_id_seq OWNED BY public.paciente.id;
+ALTER SEQUENCE public.historico_consultas_id_seq OWNED BY public.historico_consultas.id;
 
 
 --
--- Name: profissional; Type: TABLE; Schema: public; Owner: postgres
+-- Name: pacientes; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.profissional (
+CREATE TABLE public.pacientes (
     id integer NOT NULL,
-    nome character varying(150) NOT NULL,
-    especialidade character varying(50) NOT NULL,
-    registro character varying(60) NOT NULL,
-    telefone character varying(15)
+    nome character varying(100) NOT NULL,
+    sexo character(1),
+    email character varying(120),
+    endereco text,
+    nif character varying(15),
+    data_registo timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    telefone character varying(9),
+    CONSTRAINT pacientes_sexo_check CHECK ((sexo = ANY (ARRAY['M'::bpchar, 'F'::bpchar, 'O'::bpchar])))
 );
 
 
-ALTER TABLE public.profissional OWNER TO postgres;
+ALTER TABLE public.pacientes OWNER TO postgres;
 
 --
--- Name: profissional_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: pacientes_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
 --
 
-CREATE SEQUENCE public.profissional_id_seq
+CREATE SEQUENCE public.pacientes_id_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -125,140 +132,401 @@ CREATE SEQUENCE public.profissional_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE public.profissional_id_seq OWNER TO postgres;
+ALTER SEQUENCE public.pacientes_id_seq OWNER TO postgres;
 
 --
--- Name: profissional_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: pacientes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
 --
 
-ALTER SEQUENCE public.profissional_id_seq OWNED BY public.profissional.id;
-
-
---
--- Name: consulta id; Type: DEFAULT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.consulta ALTER COLUMN id SET DEFAULT nextval('public.consulta_id_seq'::regclass);
+ALTER SEQUENCE public.pacientes_id_seq OWNED BY public.pacientes.id;
 
 
 --
--- Name: paciente id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: pagamentos; Type: TABLE; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.paciente ALTER COLUMN id SET DEFAULT nextval('public.paciente_id_seq'::regclass);
+CREATE TABLE public.pagamentos (
+    id integer NOT NULL,
+    consulta_id integer NOT NULL,
+    valor numeric(10,2) NOT NULL,
+    metodo character varying(30),
+    pago boolean DEFAULT false,
+    data_pagamento timestamp without time zone,
+    CONSTRAINT pagamentos_metodo_check CHECK (((metodo)::text = ANY ((ARRAY['Dinheiro'::character varying, 'Cartão'::character varying, 'Transferência'::character varying, 'Seguro'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.pagamentos OWNER TO postgres;
+
+--
+-- Name: pagamentos_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.pagamentos_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.pagamentos_id_seq OWNER TO postgres;
+
+--
+-- Name: pagamentos_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.pagamentos_id_seq OWNED BY public.pagamentos.id;
 
 
 --
--- Name: profissional id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: profissionais; Type: TABLE; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.profissional ALTER COLUMN id SET DEFAULT nextval('public.profissional_id_seq'::regclass);
+CREATE TABLE public.profissionais (
+    id integer NOT NULL,
+    nome character varying(100) NOT NULL,
+    telefone character varying(20),
+    email character varying(120),
+    crm character varying(20),
+    salario numeric(10,2),
+    data_admissao date DEFAULT CURRENT_DATE NOT NULL
+);
+
+
+ALTER TABLE public.profissionais OWNER TO postgres;
+
+--
+-- Name: profissionais_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.profissionais_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.profissionais_id_seq OWNER TO postgres;
+
+--
+-- Name: profissionais_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.profissionais_id_seq OWNED BY public.profissionais.id;
 
 
 --
--- Data for Name: consulta; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Name: receitas; Type: TABLE; Schema: public; Owner: postgres
 --
 
-COPY public.consulta (id, data, hora, paciente_id, profissional_id) FROM stdin;
+CREATE TABLE public.receitas (
+    id integer NOT NULL,
+    consulta_id integer NOT NULL,
+    medicamento character varying(200) NOT NULL,
+    dosagem character varying(100),
+    instrucoes text
+);
+
+
+ALTER TABLE public.receitas OWNER TO postgres;
+
+--
+-- Name: receitas_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.receitas_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.receitas_id_seq OWNER TO postgres;
+
+--
+-- Name: receitas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.receitas_id_seq OWNED BY public.receitas.id;
+
+
+--
+-- Name: consultas id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.consultas ALTER COLUMN id SET DEFAULT nextval('public.consultas_id_seq'::regclass);
+
+
+--
+-- Name: historico_consultas id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.historico_consultas ALTER COLUMN id SET DEFAULT nextval('public.historico_consultas_id_seq'::regclass);
+
+
+--
+-- Name: pacientes id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.pacientes ALTER COLUMN id SET DEFAULT nextval('public.pacientes_id_seq'::regclass);
+
+
+--
+-- Name: pagamentos id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.pagamentos ALTER COLUMN id SET DEFAULT nextval('public.pagamentos_id_seq'::regclass);
+
+
+--
+-- Name: profissionais id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.profissionais ALTER COLUMN id SET DEFAULT nextval('public.profissionais_id_seq'::regclass);
+
+
+--
+-- Name: receitas id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.receitas ALTER COLUMN id SET DEFAULT nextval('public.receitas_id_seq'::regclass);
+
+
+--
+-- Data for Name: consultas; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.consultas (id, paciente_id, profissional_id, data, motivo, diagnostico, prescricao, status) FROM stdin;
 \.
 
 
 --
--- Data for Name: paciente; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: historico_consultas; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.paciente (id, nome, idade, cpf, telefone) FROM stdin;
+COPY public.historico_consultas (id, consulta_id, alteracao, data_alteracao) FROM stdin;
 \.
 
 
 --
--- Data for Name: profissional; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: pacientes; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.profissional (id, nome, especialidade, registro, telefone) FROM stdin;
+COPY public.pacientes (id, nome, sexo, email, endereco, nif, data_registo, telefone) FROM stdin;
 \.
 
 
 --
--- Name: consulta_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Data for Name: pagamentos; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.consulta_id_seq', 1, false);
-
-
---
--- Name: paciente_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
---
-
-SELECT pg_catalog.setval('public.paciente_id_seq', 1, false);
+COPY public.pagamentos (id, consulta_id, valor, metodo, pago, data_pagamento) FROM stdin;
+\.
 
 
 --
--- Name: profissional_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+-- Data for Name: profissionais; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.profissional_id_seq', 1, false);
-
-
---
--- Name: consulta consulta_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.consulta
-    ADD CONSTRAINT consulta_pkey PRIMARY KEY (id);
+COPY public.profissionais (id, nome, telefone, email, crm, salario, data_admissao) FROM stdin;
+\.
 
 
 --
--- Name: paciente paciente_cpf_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Data for Name: receitas; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.paciente
-    ADD CONSTRAINT paciente_cpf_key UNIQUE (cpf);
-
-
---
--- Name: paciente paciente_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.paciente
-    ADD CONSTRAINT paciente_pkey PRIMARY KEY (id);
+COPY public.receitas (id, consulta_id, medicamento, dosagem, instrucoes) FROM stdin;
+\.
 
 
 --
--- Name: profissional profissional_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: consultas_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.profissional
-    ADD CONSTRAINT profissional_pkey PRIMARY KEY (id);
-
-
---
--- Name: profissional profissional_registro_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.profissional
-    ADD CONSTRAINT profissional_registro_key UNIQUE (registro);
+SELECT pg_catalog.setval('public.consultas_id_seq', 1, false);
 
 
 --
--- Name: consulta consulta_paciente_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: historico_consultas_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.consulta
-    ADD CONSTRAINT consulta_paciente_id_fkey FOREIGN KEY (paciente_id) REFERENCES public.paciente(id) ON DELETE CASCADE;
+SELECT pg_catalog.setval('public.historico_consultas_id_seq', 1, false);
 
 
 --
--- Name: consulta consulta_profissional_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: pacientes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-ALTER TABLE ONLY public.consulta
-    ADD CONSTRAINT consulta_profissional_id_fkey FOREIGN KEY (profissional_id) REFERENCES public.profissional(id) ON DELETE CASCADE;
+SELECT pg_catalog.setval('public.pacientes_id_seq', 1, false);
+
+
+--
+-- Name: pagamentos_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.pagamentos_id_seq', 1, false);
+
+
+--
+-- Name: profissionais_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.profissionais_id_seq', 1, false);
+
+
+--
+-- Name: receitas_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.receitas_id_seq', 1, false);
+
+
+--
+-- Name: consultas consultas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.consultas
+    ADD CONSTRAINT consultas_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: historico_consultas historico_consultas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.historico_consultas
+    ADD CONSTRAINT historico_consultas_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pacientes pacientes_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.pacientes
+    ADD CONSTRAINT pacientes_email_key UNIQUE (email);
+
+
+--
+-- Name: pacientes pacientes_nif_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.pacientes
+    ADD CONSTRAINT pacientes_nif_key UNIQUE (nif);
+
+
+--
+-- Name: pacientes pacientes_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.pacientes
+    ADD CONSTRAINT pacientes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pagamentos pagamentos_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.pagamentos
+    ADD CONSTRAINT pagamentos_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: profissionais profissionais_contacto_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.profissionais
+    ADD CONSTRAINT profissionais_contacto_key UNIQUE (telefone);
+
+
+--
+-- Name: profissionais profissionais_crm_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.profissionais
+    ADD CONSTRAINT profissionais_crm_key UNIQUE (crm);
+
+
+--
+-- Name: profissionais profissionais_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.profissionais
+    ADD CONSTRAINT profissionais_email_key UNIQUE (email);
+
+
+--
+-- Name: profissionais profissionais_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.profissionais
+    ADD CONSTRAINT profissionais_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: receitas receitas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.receitas
+    ADD CONSTRAINT receitas_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pacientes unique_paciente_telefone; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.pacientes
+    ADD CONSTRAINT unique_paciente_telefone UNIQUE (telefone);
+
+
+--
+-- Name: consultas consultas_paciente_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.consultas
+    ADD CONSTRAINT consultas_paciente_id_fkey FOREIGN KEY (paciente_id) REFERENCES public.pacientes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: consultas consultas_profissional_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.consultas
+    ADD CONSTRAINT consultas_profissional_id_fkey FOREIGN KEY (profissional_id) REFERENCES public.profissionais(id) ON DELETE CASCADE;
+
+
+--
+-- Name: historico_consultas historico_consultas_consulta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.historico_consultas
+    ADD CONSTRAINT historico_consultas_consulta_id_fkey FOREIGN KEY (consulta_id) REFERENCES public.consultas(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pagamentos pagamentos_consulta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.pagamentos
+    ADD CONSTRAINT pagamentos_consulta_id_fkey FOREIGN KEY (consulta_id) REFERENCES public.consultas(id) ON DELETE CASCADE;
+
+
+--
+-- Name: receitas receitas_consulta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.receitas
+    ADD CONSTRAINT receitas_consulta_id_fkey FOREIGN KEY (consulta_id) REFERENCES public.consultas(id) ON DELETE CASCADE;
 
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3xiUUr2cMVfx6Ov11bYhYatnhIa9qDbl5nhAmAJXcefEIvZ27FHrTAAaa37iR7v
+\unrestrict 3vc3CHy4y8ThqBMj2HhQCHcS7Zfca7kWdcWCkkHzVDfcjcGec6r6A2bPqyLYaO8
 
