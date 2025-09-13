@@ -1,0 +1,3 @@
+# Dependências do projeto
+
+psycopg2-binary
