@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3vc3CHy4y8ThqBMj2HhQCHcS7Zfca7kWdcWCkkHzVDfcjcGec6r6A2bPqyLYaO8
+\restrict 4xXgwXI6KpgeVmo4B7C5iV8R2Wv6qlz1MBIyGW21YqzDceEfVGZjxTHU0rmsUFc
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.6
@@ -65,6 +65,40 @@ ALTER SEQUENCE public.consultas_id_seq OWNED BY public.consultas.id;
 
 
 --
+-- Name: especialidades; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.especialidades (
+    id integer NOT NULL,
+    nome character varying(100) NOT NULL
+);
+
+
+ALTER TABLE public.especialidades OWNER TO postgres;
+
+--
+-- Name: especialidades_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.especialidades_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.especialidades_id_seq OWNER TO postgres;
+
+--
+-- Name: especialidades_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.especialidades_id_seq OWNED BY public.especialidades.id;
+
+
+--
 -- Name: historico_consultas; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -110,7 +144,7 @@ CREATE TABLE public.pacientes (
     sexo character(1),
     email character varying(120),
     endereco text,
-    nif character varying(15),
+    cpf character varying(11),
     data_registo timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     telefone character varying(9),
     CONSTRAINT pacientes_sexo_check CHECK ((sexo = ANY (ARRAY['M'::bpchar, 'F'::bpchar, 'O'::bpchar])))
@@ -191,7 +225,8 @@ CREATE TABLE public.profissionais (
     email character varying(120),
     crm character varying(20),
     salario numeric(10,2),
-    data_admissao date DEFAULT CURRENT_DATE NOT NULL
+    data_admissao date DEFAULT CURRENT_DATE NOT NULL,
+    especialidade_id integer
 );
 
 
@@ -264,6 +299,13 @@ ALTER TABLE ONLY public.consultas ALTER COLUMN id SET DEFAULT nextval('public.co
 
 
 --
+-- Name: especialidades id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.especialidades ALTER COLUMN id SET DEFAULT nextval('public.especialidades_id_seq'::regclass);
+
+
+--
 -- Name: historico_consultas id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -307,6 +349,14 @@ COPY public.consultas (id, paciente_id, profissional_id, data, motivo, diagnosti
 
 
 --
+-- Data for Name: especialidades; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.especialidades (id, nome) FROM stdin;
+\.
+
+
+--
 -- Data for Name: historico_consultas; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -318,7 +368,7 @@ COPY public.historico_consultas (id, consulta_id, alteracao, data_alteracao) FRO
 -- Data for Name: pacientes; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.pacientes (id, nome, sexo, email, endereco, nif, data_registo, telefone) FROM stdin;
+COPY public.pacientes (id, nome, sexo, email, endereco, cpf, data_registo, telefone) FROM stdin;
 \.
 
 
@@ -334,7 +384,7 @@ COPY public.pagamentos (id, consulta_id, valor, metodo, pago, data_pagamento) FR
 -- Data for Name: profissionais; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.profissionais (id, nome, telefone, email, crm, salario, data_admissao) FROM stdin;
+COPY public.profissionais (id, nome, telefone, email, crm, salario, data_admissao, especialidade_id) FROM stdin;
 \.
 
 
@@ -351,6 +401,13 @@ COPY public.receitas (id, consulta_id, medicamento, dosagem, instrucoes) FROM st
 --
 
 SELECT pg_catalog.setval('public.consultas_id_seq', 1, false);
+
+
+--
+-- Name: especialidades_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.especialidades_id_seq', 1, false);
 
 
 --
@@ -397,6 +454,22 @@ ALTER TABLE ONLY public.consultas
 
 
 --
+-- Name: especialidades especialidades_nome_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.especialidades
+    ADD CONSTRAINT especialidades_nome_key UNIQUE (nome);
+
+
+--
+-- Name: especialidades especialidades_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.especialidades
+    ADD CONSTRAINT especialidades_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: historico_consultas historico_consultas_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -417,7 +490,7 @@ ALTER TABLE ONLY public.pacientes
 --
 
 ALTER TABLE ONLY public.pacientes
-    ADD CONSTRAINT pacientes_nif_key UNIQUE (nif);
+    ADD CONSTRAINT pacientes_nif_key UNIQUE (cpf);
 
 
 --
@@ -517,6 +590,14 @@ ALTER TABLE ONLY public.pagamentos
 
 
 --
+-- Name: profissionais profissionais_especialidade_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.profissionais
+    ADD CONSTRAINT profissionais_especialidade_id_fkey FOREIGN KEY (especialidade_id) REFERENCES public.especialidades(id);
+
+
+--
 -- Name: receitas receitas_consulta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -528,5 +609,5 @@ ALTER TABLE ONLY public.receitas
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3vc3CHy4y8ThqBMj2HhQCHcS7Zfca7kWdcWCkkHzVDfcjcGec6r6A2bPqyLYaO8
+\unrestrict 4xXgwXI6KpgeVmo4B7C5iV8R2Wv6qlz1MBIyGW21YqzDceEfVGZjxTHU0rmsUFc
 
