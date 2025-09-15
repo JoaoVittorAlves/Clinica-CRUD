@@ -44,7 +44,7 @@ CREATE TABLE cadastros.funcionarios (
     data_admissao DATE NOT NULL DEFAULT CURRENT_DATE,
     cargo VARCHAR(100) NOT NULL,
     tipo_contrato VARCHAR(20) NOT NULL CHECK (tipo_contrato IN ('CLT', 'PJ', 'Estágio')),
-    perfil_acesso_id INTEGER NOT NULL REFERENCES cadastros.perfis_acesso(id) ON DELETE CASCADE,
+    perfil_acesso_id INTEGER NOT NULL REFERENCES cadastros.perfis_acesso(id) ON DELETE RESTRICT,
     logradouro VARCHAR(255),
     numero VARCHAR(20),
     complemento VARCHAR(100),
