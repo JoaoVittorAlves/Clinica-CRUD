@@ -1,157 +1,468 @@
 # Arquivo principal para executar exemplos
 
-from db_manager import DatabaseManager
-import sql_queries as queries
 import os
+from db_manager import DatabaseManager
+from queries import cadastros_queries, clinico_queries, financeiro_queries
+
+MENU_CONFIG = {
+    'cadastros': {
+        'nome': 'Cadastros',
+        'tabelas': {
+            'pacientes': {
+                'nome': 'Pacientes',
+                'queries': {
+                    'listar': cadastros_queries.LISTAR_TODOS_PACIENTES,
+                    'exibir_um': cadastros_queries.SELECIONAR_PACIENTE_POR_ID,
+                    'pesquisar_nome': cadastros_queries.PESQUISAR_PACIENTE_POR_NOME,
+                    'remover': cadastros_queries.REMOVER_PACIENTE,
+                    'inserir': cadastros_queries.INSERIR_PACIENTE,
+                    'alterar_telefone': cadastros_queries.ATUALIZAR_TELEFONE_PACIENTE
+                },
+                'menu_ops': [
+                    {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
+                    {'opcao': '2', 'nome': 'Exibir Um por ID', 'handler': 'exibir_um'},
+                    {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir'},
+                    {'opcao': '4', 'nome': 'Alterar Telefone', 'handler': 'alterar', 'key': 'alterar_telefone'},
+                    {'opcao': '5', 'nome': 'Pesquisar por Nome', 'handler': 'pesquisar', 'key': 'pesquisar_nome'},
+                    {'opcao': '6', 'nome': 'Remover por ID', 'handler': 'remover'}
+                ],
+                'insert_fields': ['Nome', 'Sexo (M/F/O)', 'Email', 'CPF', 'Telefone', 'Logradouro', 'Número', 'Complemento', 'Bairro', 'Cidade', 'Estado (UF)', 'CEP'],
+                'prompts': {
+                    'alterar_telefone': 'Digite o NOVO telefone para o paciente',
+                    'pesquisar_nome': 'Digite o nome ou parte do nome a ser pesquisado'
+                }
+            },
+            'medicos': {
+                'nome': 'Médicos',
+                'queries': {
+                    'listar': cadastros_queries.LISTAR_TODOS_MEDICOS,
+                    'exibir_um': cadastros_queries.SELECIONAR_MEDICO_POR_CRM, 
+                    'pesquisar_nome': cadastros_queries.PESQUISAR_MEDICO_POR_NOME,
+                    'pesquisar_especialidade': cadastros_queries.PESQUISAR_MEDICO_POR_ESPECIALIDADE,
+                    'remover': cadastros_queries.REMOVER_MEDICO,
+                    'inserir': cadastros_queries.INSERIR_MEDICO,
+                    'alterar_salario': cadastros_queries.ATUALIZAR_SALARIO_MEDICO
+                },
+                'menu_ops': [
+                    {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
+                    {'opcao': '2', 'nome': 'Exibir Um por CRM', 'handler': 'exibir_um', 'prompt': 'Digite o CRM do médico'},
+                    {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir'},
+                    {'opcao': '4', 'nome': 'Alterar Salário', 'handler': 'alterar', 'key': 'alterar_salario'},
+                    {'opcao': '5', 'nome': 'Pesquisar por Nome', 'handler': 'pesquisar', 'key': 'pesquisar_nome'},
+                    {'opcao': '6', 'nome': 'Pesquisar por Especialidade', 'handler': 'pesquisar', 'key': 'pesquisar_especialidade'},
+                    {'opcao': '7', 'nome': 'Remover por ID', 'handler': 'remover'}
+                ],
+                'insert_fields': ['Nome', 'Telefone', 'Email', 'CRM', 'Salário', 'ID da Especialidade', 'Logradouro', 'Número', 'Complemento', 'Bairro', 'Cidade', 'Estado (UF)', 'CEP'],
+                'prompts': {
+                    'alterar_salario': 'Digite o NOVO salário para o médico',
+                    'pesquisar_nome': 'Digite o nome do médico',
+                    'pesquisar_especialidade': 'Digite o nome da especialidade'
+                }
+            },
+            'especialidades': {
+                'nome': 'Especialidades',
+                'queries': {
+                    'listar': cadastros_queries.LISTAR_TODAS_ESPECIALIDADES,
+                    'remover': cadastros_queries.REMOVER_ESPECIALIDADE,
+                    'check_delete': cadastros_queries.VERIFICAR_MEDICOS_POR_ESPECIALIDADE,
+                    'alterar_status': cadastros_queries.ATUALIZAR_STATUS_ESPECIALIDADE,
+                },
+                'menu_ops': [
+                    {'opcao': '1', 'nome': 'Listar Todas', 'handler': 'listar'},
+                    {'opcao': '2', 'nome': 'Alterar Status (Ativa/Inativa)', 'handler': 'alterar_status_especialidade'}, 
+                    {'opcao': '3', 'nome': 'Remover (com verificação)', 'handler': 'remover_seguro'} 
+                ]
+            },
+            'funcionarios': {
+                'nome': 'Funcionários',
+                'queries': { 
+                    'listar': cadastros_queries.LISTAR_TODOS_FUNCIONARIOS,
+                    'remover': cadastros_queries.REMOVER_FUNCIONARIO,
+                    'alterar_perfil': cadastros_queries.ATUALIZAR_PERFIL_ACESSO_FUNCIONARIO,
+                    'pesquisar_contrato': cadastros_queries.PESQUISAR_FUNCIONARIO_POR_TIPO_DE_CONTRATO
+                },
+                'menu_ops': [
+                    {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
+                    {'opcao': '2', 'nome': 'Alterar Perfil de Acesso', 'handler': 'alterar_perfil_funcionario', 'key': 'alterar_perfil'},
+                    {'opcao': '3', 'nome': 'Pesquisar por Tipo de Contrato', 'handler': 'pesquisar', 'key': 'pesquisar_contrato'},
+                    {'opcao': '4', 'nome': 'Remover por ID', 'handler': 'remover'}
+                ],
+                'prompts': {
+                    'alterar_perfil': 'Digite o NOVO ID do perfil de acesso',
+                    'pesquisar_contrato': 'Digite o tipo de contrato (CLT, PJ, Estágio)'
+                }
+            },
+             'perfis_acesso': {
+                'nome': 'Perfis de Acesso',
+                'queries': {
+                    'listar': cadastros_queries.LISTAR_TODOS_PERFIS_ACESSO,
+                    'remover': cadastros_queries.REMOVER_PERFIL_ACESSO,
+                    'check_delete': cadastros_queries.VERIFICAR_FUNCIONARIOS_POR_PERFIL
+                },
+                 'menu_ops': [
+                    {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
+                    {'opcao': '2', 'nome': 'Remover (com verificação)', 'handler': 'remover_seguro'}
+                ]
+            }
+        }
+    },
+    'clinico': {
+        'nome': 'Clínico',
+        'tabelas': {
+            'consultas': {
+                'nome': 'Consultas',
+                'queries': { 
+                    'listar': clinico_queries.LISTAR_TODAS_CONSULTAS,
+                    'pesquisar_paciente': clinico_queries.PESQUISAR_CONSULTA_POR_NOME_PACIENTE
+                },
+                'menu_ops': [
+                    {'opcao': '1', 'nome': 'Listar Todas', 'handler': 'listar'},
+                    {'opcao': '2', 'nome': 'Pesquisar por Nome do Paciente', 'handler': 'pesquisar', 'key': 'pesquisar_paciente'}
+                ],
+                'prompts': {
+                    'pesquisar_paciente': 'Digite o nome do paciente'
+                }
+            },
+            'receitas': {
+                'nome': 'Receitas',
+                'queries': { 
+                    'listar': clinico_queries.LISTAR_TODAS_RECEITAS,
+                    'pesquisar_paciente': clinico_queries.PESQUISAR_RECEITA_POR_PACIENTE
+                },
+                'menu_ops': [
+                    {'opcao': '1', 'nome': 'Listar Todas', 'handler': 'listar'},
+                    {'opcao': '2', 'nome': 'Pesquisar por Nome do Paciente', 'handler': 'pesquisar', 'key': 'pesquisar_paciente'}
+                ],
+                'prompts': {
+                    'pesquisar_paciente': 'Digite o nome do paciente'
+                }
+            }
+        },
+        'relatorios': {
+            'detalhes_consultas': {
+                'nome': 'Relatório Detalhado de Consultas',
+                'query': clinico_queries.DETALHES_CONSULTAS
+            }
+        }
+    },
+    'financeiro': {
+        'nome': 'Financeiro',
+        'tabelas': {
+            'pagamentos': {
+                'nome': 'Pagamentos',
+                'queries': { 
+                    'listar': financeiro_queries.LISTAR_TODOS_PAGAMENTOS,
+                    'pesquisar_paciente': financeiro_queries.PESQUISAR_PAGAMENTO_POR_NOME_PACIENTE
+                },
+                'menu_ops': [
+                    {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
+                    {'opcao': '2', 'nome': 'Pesquisar por Nome do Paciente', 'handler': 'pesquisar', 'key': 'pesquisar_paciente'}
+                ],
+                'prompts': {
+                    'pesquisar_paciente': 'Digite o nome do paciente'
+                }
+            }
+        }
+    }
+}
+
 
 # --- Funções Auxiliares de Interface ---
-
 def limpar_tela():
-    """Limpa o terminal para uma melhor experiência de usuário."""
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def pausar():
-    """Pausa a execução até que o usuário pressione Enter."""
     input("\nPressione Enter para continuar...")
 
-# --- Funções de Operações no Banco de Dados ---
-
-def listar_todos_pacientes(db_manager):
-    print("\n--- 5. LISTANDO TODOS OS PACIENTES ---")
-    resultados = db_manager.fetch_query(queries.LISTAR_TODOS_PACIENTES)
-    if not resultados:
-        print("Nenhum paciente cadastrado.")
-        return
+def formatar_resultados(resultados, cursor_description):
+    if not resultados: return "Nenhum resultado encontrado."
     
-    for r in resultados:
-        print(f"  ID: {r[0]}, Nome: {r[1]}, Email: {r[2]}, Telefone: {r[3]}")
-
-def exibir_um_paciente(db_manager):
-    print("\n--- 6. EXIBINDO UM PACIENTE ---")
-    try:
-        paciente_id = int(input("Digite o ID do paciente: "))
-    except ValueError:
-        print("Erro: ID inválido. Por favor, digite um número.")
-        return
-
-    resultado = db_manager.fetch_query(queries.SELECIONAR_PACIENTE_POR_ID, (paciente_id,))
-    if not resultado:
-        print(f"Paciente com ID {paciente_id} não encontrado.")
-        return
+    colunas = [desc[0] for desc in cursor_description]
+    # Calcula a largura de cada coluna
+    larguras = [len(col) for col in colunas]
+    for linha in resultados:
+        for i, item in enumerate(linha):
+            larguras[i] = max(larguras[i], len(str(item)))
+    
+    # Monta o cabeçalho
+    cabecalho = " | ".join(f"{col.upper():<{larguras[i]}}" for i, col in enumerate(colunas))
+    separador = "-+-".join("-" * w for w in larguras)
+    
+    # Monta as linhas de dados
+    linhas_dados = []
+    for linha in resultados:
+        linhas_dados.append(" | ".join(f"{str(item):<{larguras[i]}}" for i, item in enumerate(linha)))
         
-    paciente = resultado[0]
-    print(f"\n  Detalhes do Paciente ID {paciente_id}:")
-    print(f"  - Nome: {paciente[1]}")
-    print(f"  - Email: {paciente[2]}")
-    print(f"  - Telefone: {paciente[3]}")
-    print(f"  - Cidade: {paciente[4]}, Estado: {paciente[5]}")
+    return "\n".join([cabecalho, separador] + linhas_dados)
 
-def inserir_novo_paciente(db_manager):
-    print("\n--- 1. INSERINDO NOVO PACIENTE ---")
-    nome = input("Nome completo: ")
-    sexo = input("Sexo (M/F/O): ").upper()
-    email = input("Email: ")
-    cpf = input("CPF (apenas números): ")
-    telefone = input("Telefone (xxxxxxxxx): ")
-    
-    paciente_novo = (nome, sexo, email, cpf, telefone)
-    resultado = db_manager.execute_and_fetch_one(queries.INSERIR_PACIENTE, paciente_novo)
-    
-    if resultado:
-        novo_id = resultado[0]
-        print(f"\nPaciente '{nome}' inserido com sucesso! ID: {novo_id}")
-    else:
-        print("\nFalha ao inserir paciente. Verifique os dados e tente novamente.")
 
-def alterar_paciente(db_manager):
-    print("\n--- 2. ALTERANDO PACIENTE ---")
-    try:
-        paciente_id = int(input("Digite o ID do paciente que deseja alterar: "))
-        novo_telefone = input(f"Digite o NOVO telefone para o paciente {paciente_id}: ")
-    except ValueError:
-        print("Erro: ID inválido. Por favor, digite um número.")
+# --- Funções Genéricas e Específicas de CRUD ---
+
+def listar_registros(db, config, **kwargs):
+    print(f"\n--- LISTANDO: {config['nome']} ---")
+    query = config['queries'].get('listar')
+    if not query:
+        print("Operação não configurada.")
         return
+    resultados, description = db.fetch_query(query)
+    print(formatar_resultados(resultados, description))
 
-    if db_manager.execute_query(queries.ATUALIZAR_TELEFONE_PACIENTE, (novo_telefone, paciente_id)):
-        print(f"\nTelefone do paciente {paciente_id} atualizado com sucesso!")
-    else:
-        print("\nFalha ao atualizar paciente. Verifique se o ID existe.")
+def exibir_um_registro(db, config, **kwargs):
+    print(f"\n--- EXIBINDO UM: {config['nome']} ---")
+    prompt_text = kwargs.get('prompt', 'Digite o ID do registro')
+    termo = input(f"{prompt_text}: ")
+    query = config['queries']['exibir_um']
+    resultados, description = db.fetch_query(query, (termo,))
+    print(formatar_resultados(resultados, description))
 
-def pesquisar_por_nome(db_manager):
-    print("\n--- 3. PESQUISANDO PACIENTE POR NOME ---")
-    nome = input("Digite o nome ou parte do nome a ser pesquisado: ")
-    parametro_busca = f"%{nome}%"
-    resultados = db_manager.fetch_query(queries.PESQUISAR_PACIENTE_POR_NOME, (parametro_busca,))
-    
-    if not resultados:
-        print("Nenhum paciente encontrado com esse nome.")
-        return
+def inserir_registro(db, config, **kwargs):
+    print(f"\n--- INSERINDO: {config['nome']} ---")
+    query = config['queries'].get('inserir')
+    fields = config.get('insert_fields')
+    if not query or not fields: return print("Operação não configurada.")
         
-    print("\nResultados encontrados:")
-    for r in resultados:
-        print(f"  ID: {r[0]}, Nome: {r[1]}, Email: {r[2]}")
+    valores = [input(f"{campo}: ") for campo in fields]
+    resultado = db.execute_and_fetch_one(query, tuple(valores))
+    if resultado: print(f"\nRegistro inserido com sucesso! ID: {resultado[0]}")
+    else: print("\nFalha ao inserir registro.")
 
-def remover_paciente(db_manager):
-    print("\n--- 4. REMOVENDO PACIENTE ---")
+def alterar_registro(db, config, key):
+    print(f"\n--- ALTERANDO: {config['nome']} ---")
+    query = config['queries'][key]
+    prompt = config['prompts'][key]
+    
     try:
-        paciente_id = int(input("Digite o ID do paciente que deseja remover: "))
-    except ValueError:
-        print("Erro: ID inválido. Por favor, digite um número.")
+        registro_id = int(input(f"Digite o ID do(a) {config['nome']} que deseja alterar: "))
+        novo_valor = input(f"{prompt}: ")
+    except ValueError: return print("Erro: ID inválido.")
+
+    if db.execute_query(query, (novo_valor, registro_id)):
+        print(f"\nRegistro ID {registro_id} atualizado com sucesso!")
+    else: print("\nFalha ao atualizar. Verifique se o ID existe.")
+
+def pesquisar_registros(db, config, key):
+    print(f"\n--- PESQUISANDO: {config['nome']} ---")
+    query = config['queries'][key]
+    prompt = config['prompts'][key]
+    
+    termo = input(f"{prompt}: ")
+    parametro_busca = f"%{termo}%" if 'ILIKE' in query.upper() else termo
+    
+    resultados, description = db.fetch_query(query, (parametro_busca,))
+    print(formatar_resultados(resultados, description))
+
+def remover_registro(db, config, **kwargs):
+    print(f"\n--- REMOVENDO: {config['nome']} ---")
+    query = config['queries']['remover']
+    
+    try:
+        registro_id = int(input(f"Digite o ID do(a) {config['nome']} que deseja remover: "))
+    except ValueError: return print("Erro: ID inválido.")
+
+    if input(f"Tem certeza? (s/n): ").lower() != 's': return print("Operação cancelada.")
+
+    if db.execute_query(query, (registro_id,)):
+        print(f"\nRegistro ID {registro_id} removido com sucesso!")
+    else: print("\nFalha ao remover. Verifique se o ID existe.")
+
+def remover_seguro(db, config, **kwargs):
+    print(f"\n--- REMOVENDO: {config['nome']} (com verificação) ---")
+    try:
+        registro_id = int(input(f"Digite o ID da {config['nome']} que deseja remover: "))
+    except ValueError: return print("Erro: ID inválido.")
+        
+    check_query = config['queries']['check_delete']
+    resultado = db.execute_and_fetch_one(check_query, (registro_id,))
+    vinculados = resultado[0] if resultado else 0
+
+    if vinculados > 0:
+        print(f"\n[ERRO] Não é possível remover: {vinculados} registro(s) dependem deste.")
+    else:
+        remover_registro(db, config) # Reutiliza a função de remoção padrão após a checagem
+
+def alterar_status_especialidade(db, config, **kwargs):
+    print(f"\n--- ALTERANDO STATUS: {config['nome']} ---")
+    try:
+        registro_id = int(input(f"Digite o ID da {config['nome']} que deseja alterar: "))
+    except ValueError: 
+        print("Erro: ID inválido.")
         return
 
-    # Confirmação para segurança
-    confirmacao = input(f"Tem certeza que deseja remover o paciente ID {paciente_id}? (s/n): ").lower()
-    if confirmacao != 's':
+    # Busca o status atual para inverter
+    resultados, description = db.fetch_query(cadastros_queries.SELECIONAR_ESPECIALIDADE_POR_ID, (registro_id,))
+    
+    if not resultados: 
+        print("Especialidade não encontrada.")
+        return
+    
+    status_atual = resultados[0][2] 
+    novo_status = not status_atual
+    
+    status_atual_texto = 'Ativa' if status_atual else 'Inativa'
+    novo_status_texto = 'Ativa' if novo_status else 'Inativa'
+
+    confirmacao = input(f"O status atual é '{status_atual_texto}'. Deseja alterar para '{novo_status_texto}'? (s/n): ").lower()
+    if confirmacao != 's': 
         print("Operação cancelada.")
         return
+    
+    if db.execute_query(config['queries']['alterar_status'], (novo_status, registro_id)):
+        print(f"\nStatus da especialidade ID {registro_id} alterado com sucesso!")
+    else: 
+        print("\nFalha ao alterar o status.")
 
-    if db_manager.execute_query(queries.REMOVER_PACIENTE, (paciente_id,)):
-        print(f"\nPaciente com ID {paciente_id} removido com sucesso!")
+def alterar_perfil_funcionario(db, config, **kwargs):
+    """Handler especializado para alterar o perfil de um funcionário de forma interativa."""
+    print(f"\n--- ALTERANDO PERFIL DE ACESSO DO FUNCIONÁRIO ---")
+    
+    try:
+        funcionario_id = int(input(f"Digite o ID do Funcionário que deseja alterar: "))
+    except ValueError:
+        print("Erro: ID inválido.")
+        return
+
+    # Passo 1: Buscar dinamicamente os perfis de acesso disponíveis no banco
+    print("\nBuscando perfis de acesso disponíveis...")
+    perfis, desc = db.fetch_query(cadastros_queries.LISTAR_TODOS_PERFIS_ACESSO)
+
+    if not perfis:
+        print("Nenhum perfil de acesso encontrado no sistema.")
+        return
+
+    # Passo 2: Exibir a lista de perfis para o usuário
+    print("Perfis de Acesso Disponíveis:")
+    perfis_disponiveis = {}
+    for perfil in perfis:
+        perfil_id, nome, descricao = perfil
+        perfis_disponiveis[str(perfil_id)] = nome
+        print(f"  ID: {perfil_id} - {nome}")
+
+    # Passo 3: Pedir ao usuário para escolher um da lista
+    while True:
+        novo_perfil_id_str = input("\nDigite o ID do NOVO perfil de acesso para este funcionário: ")
+        if novo_perfil_id_str in perfis_disponiveis:
+            break
+        else:
+            print("Erro: ID de perfil inválido. Por favor, escolha um da lista acima.")
+    
+    # Passo 4: Executar o UPDATE com o ID escolhido
+    query = config['queries']['alterar_perfil']
+    if db.execute_query(query, (int(novo_perfil_id_str), funcionario_id)):
+        print(f"\nPerfil do funcionário ID {funcionario_id} alterado para '{perfis_disponiveis[novo_perfil_id_str]}' com sucesso!")
     else:
-        print("\nFalha ao remover paciente. Verifique se o ID existe.")
+        print("\nFalha ao atualizar o perfil. Verifique se o ID do funcionário existe.")
+
+# Mapeamento de strings de 'handler' para as funções reais
+CRUD_HANDLERS = {
+    'listar': listar_registros,
+    'exibir_um': exibir_um_registro,
+    'inserir': inserir_registro,
+    'alterar': alterar_registro,
+    'pesquisar': pesquisar_registros,
+    'remover': remover_registro,
+    'remover_seguro': remover_seguro,
+    'alterar_status_especialidade': alterar_status_especialidade,
+    'alterar_perfil_funcionario': alterar_perfil_funcionario
+}
+
+# --- Funções de Navegação nos Menus ---
+def menu_crud(db, schema_key, table_key):
+    config_tabela = MENU_CONFIG[schema_key]['tabelas'][table_key]
+    while True:
+        limpar_tela()
+        print(f"=== Gerenciando: {config_tabela['nome']} ===")
+        
+        # Gera o menu dinamicamente a partir da configuração
+        opcoes_menu = {op['opcao']: op for op in config_tabela.get('menu_ops', [])}
+        for opcao, config_op in opcoes_menu.items():
+            print(f"  {opcao} - {config_op['nome']}")
+
+        print("\n  0 - Voltar")
+        escolha = input("\n> ")
+        limpar_tela()
+
+        if escolha == '0': break
+        
+        if escolha in opcoes_menu:
+            op_selecionada = opcoes_menu[escolha]
+            handler_func = CRUD_HANDLERS.get(op_selecionada['handler'])
+            if handler_func:
+                # Prepara os argumentos para a função handler
+                handler_args = {'db': db, 'config': config_tabela, 'key': op_selecionada.get('key')}
+                # Adiciona o prompt customizado se houver
+                if 'prompt' in op_selecionada:
+                    handler_args['prompt'] = op_selecionada['prompt']
+                
+                handler_func(**{k: v for k, v in handler_args.items() if v is not None})
+            else:
+                print(f"Handler '{op_selecionada['handler']}' não implementado.")
+        else:
+            print("Opção inválida!")
+        pausar()
 
 
-# --- Execução Principal ---
+def menu_tabelas(db, schema_key):
+    config_schema = MENU_CONFIG[schema_key]
+    while True:
+        limpar_tela()
+        print(f"=== Schema: {config_schema['nome']} ===")
+        # Menu de Tabelas
+        tabelas = config_schema.get('tabelas', {})
+        opcoes_tabela = list(tabelas.keys())
+        for i, key in enumerate(opcoes_tabela):
+            print(f"  {i+1} - Gerenciar {tabelas[key]['nome']}")
+        
+        # Menu de Relatórios
+        relatorios = config_schema.get('relatorios', {})
+        opcoes_relatorio = list(relatorios.keys())
+        if relatorios:
+            print("\n--- Relatórios ---")
+            for i, key in enumerate(opcoes_relatorio):
+                print(f"  R{i+1} - {relatorios[key]['nome']}")
+
+        print("\n  0 - Voltar")
+        escolha = input("\n> ")
+
+        if escolha.upper().startswith('R'):
+            try:
+                idx = int(escolha[1:]) - 1
+                if 0 <= idx < len(opcoes_relatorio):
+                    key = opcoes_relatorio[idx]
+                    listar_registros(db, relatorios[key]) # Reutiliza a função de listar
+                    pausar()
+            except (ValueError, IndexError):
+                print("Opção de relatório inválida!"); pausar()
+        else:
+            try:
+                idx = int(escolha) - 1
+                if idx == -1: break
+                if 0 <= idx < len(opcoes_tabela):
+                    key = opcoes_tabela[idx]
+                    menu_crud(db, schema_key, key)
+                else: print("Opção inválida!"); pausar()
+            except ValueError: print("Opção inválida!"); pausar()
+
 
 def menu_principal(db):
-    """Renderiza o menu principal e gerencia as escolhas do usuário."""
     while True:
         limpar_tela()
         print("=========================================")
         print("===   Sistema de Gestão da Clínica    ===")
         print("=========================================")
-        print("\nEscolha uma opção para a tabela de PACIENTES:")
-        print("  1 - Listar todos os pacientes")
-        print("  2 - Exibir detalhes de um paciente")
-        print("  3 - Inserir novo paciente")
-        print("  4 - Alterar telefone de um paciente")
-        print("  5 - Pesquisar paciente por nome")
-        print("  6 - Remover paciente")
+        opcoes = list(MENU_CONFIG.keys())
+        for i, key in enumerate(opcoes):
+            print(f"  {i+1} - {MENU_CONFIG[key]['nome']}")
         print("\n  0 - Sair")
-        
         escolha = input("\n> ")
-
-        limpar_tela()
-        if escolha == '1':
-            listar_todos_pacientes(db)
-        elif escolha == '2':
-            exibir_um_paciente(db)
-        elif escolha == '3':
-            inserir_novo_paciente(db)
-        elif escolha == '4':
-            alterar_paciente(db)
-        elif escolha == '5':
-            pesquisar_por_nome(db)
-        elif escolha == '6':
-            remover_paciente(db)
-        elif escolha == '0':
-            print("Saindo do sistema...")
-            break
-        else:
-            print("Opção inválida! Tente novamente.")
-        
-        pausar()
-
+        try:
+            idx = int(escolha) - 1
+            if idx == -1: break
+            if 0 <= idx < len(opcoes):
+                key_schema_selecionado = opcoes[idx]
+                menu_tabelas(db, key_schema_selecionado)
+            else: print("Opção inválida!"); pausar()
+        except ValueError: print("Opção inválida!"); pausar()
+    print("Saindo do sistema...")
 
 if __name__ == "__main__":
     db = DatabaseManager()

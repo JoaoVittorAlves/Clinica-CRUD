@@ -42,19 +42,21 @@ class DatabaseManager:
             return False
 
     def fetch_query(self, query, params=None):
-        """Executa uma query que retorna dados (SELECT)."""
+        """Executa uma query SELECT e retorna os resultados E a descrição das colunas."""
         if not self.conn:
             print("Não há conexão com o banco.")
-            return None
+            return None, None
 
         try:
             with self.conn.cursor() as cur:
                 cur.execute(query, params or ())
-                return cur.fetchall()
+                resultados = cur.fetchall()
+                description = cur.description 
+                return resultados, description 
         except psycopg2.Error as e:
             print(f"Erro ao buscar dados: {e}")
-            self.conn.rollback() 
-            return None
+            self.conn.rollback()
+            return None, None
     
     def execute_and_fetch_one(self, query, params=None):
         """Executa uma query que modifica dados e retorna o primeiro resultado (ex: RETURNING id)."""
