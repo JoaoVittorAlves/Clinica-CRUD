@@ -120,9 +120,18 @@ REMOVER_FUNCIONARIO = "" \
 "WHERE id = %s;"
 
 LISTAR_TODOS_FUNCIONARIOS = "" \
-"SELECT id, nome, cargo, email " \
-"FROM cadastros.funcionarios " \
-"ORDER BY id;"
+"SELECT " \
+"    f.id, " \
+"    f.nome, " \
+"    f.cargo, " \
+"    p.nome AS perfil_acesso, " \
+"    f.email " \
+"FROM " \
+"    cadastros.funcionarios AS f " \
+"JOIN " \
+"    cadastros.perfis_acesso AS p ON f.perfil_acesso_id = p.id " \
+"ORDER BY " \
+"    f.id;"
 
 SELECIONAR_FUNCIONARIO_POR_ID = "" \
 "SELECT * " \
@@ -144,7 +153,7 @@ ATUALIZAR_STATUS_ESPECIALIDADE = "" \
 "WHERE id = %s;"
 
 PESQUISAR_ESPECIALIDADE_POR_NOME = "" \
-"SELECT id, nome, cargo " \
+"SELECT id, nome, especialidade_ativa " \
 "FROM cadastros.especialidades " \
 "WHERE nome ILIKE %s;"
 

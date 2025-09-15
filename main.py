@@ -66,29 +66,46 @@ MENU_CONFIG = {
                     'remover': cadastros_queries.REMOVER_ESPECIALIDADE,
                     'check_delete': cadastros_queries.VERIFICAR_MEDICOS_POR_ESPECIALIDADE,
                     'alterar_status': cadastros_queries.ATUALIZAR_STATUS_ESPECIALIDADE,
+                    'inserir': cadastros_queries.INSERIR_ESPECIALIDADE,
+                    'pesquisar_nome': cadastros_queries.PESQUISAR_ESPECIALIDADE_POR_NOME,
+                    'exibir_um': cadastros_queries.SELECIONAR_ESPECIALIDADE_POR_ID
                 },
                 'menu_ops': [
                     {'opcao': '1', 'nome': 'Listar Todas', 'handler': 'listar'},
-                    {'opcao': '2', 'nome': 'Alterar Status (Ativa/Inativa)', 'handler': 'alterar_status_especialidade'}, 
-                    {'opcao': '3', 'nome': 'Remover (com verificação)', 'handler': 'remover_seguro'} 
-                ]
+                    {'opcao': '2', 'nome': 'Exibir Uma por ID', 'handler': 'exibir_um'},
+                    {'opcao': '3', 'nome': 'Inserir Nova', 'handler': 'inserir'},
+                    {'opcao': '4', 'nome': 'Pesquisar por Nome', 'handler': 'pesquisar', 'key': 'pesquisar_nome'},
+                    {'opcao': '5', 'nome': 'Alterar Status (Ativa/Inativa)', 'handler': 'alterar_status_especialidade'}, 
+                    {'opcao': '6', 'nome': 'Remover (com verificação)', 'handler': 'remover_seguro'} 
+                ],
+                'insert_fields': ['Nome da Especialidade', 'Está ativa? (True/False)'],
+                'prompts': {
+                    'pesquisar_nome': 'Digite o nome ou parte do nome da especialidade'
+                }
             },
             'funcionarios': {
                 'nome': 'Funcionários',
                 'queries': { 
                     'listar': cadastros_queries.LISTAR_TODOS_FUNCIONARIOS,
+                    'exibir_um': cadastros_queries.SELECIONAR_FUNCIONARIO_POR_ID,
+                    'inserir': cadastros_queries.INSERIR_FUNCIONARIO,
+                    'pesquisar_nome': cadastros_queries.PESQUISAR_FUNCIONARIO_POR_NOME,
+                    'pesquisar_contrato': cadastros_queries.PESQUISAR_FUNCIONARIO_POR_TIPO_DE_CONTRATO,
                     'remover': cadastros_queries.REMOVER_FUNCIONARIO,
-                    'alterar_perfil': cadastros_queries.ATUALIZAR_PERFIL_ACESSO_FUNCIONARIO,
-                    'pesquisar_contrato': cadastros_queries.PESQUISAR_FUNCIONARIO_POR_TIPO_DE_CONTRATO
+                    'alterar_perfil': cadastros_queries.ATUALIZAR_PERFIL_ACESSO_FUNCIONARIO
                 },
                 'menu_ops': [
                     {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
-                    {'opcao': '2', 'nome': 'Alterar Perfil de Acesso', 'handler': 'alterar_perfil_funcionario', 'key': 'alterar_perfil'},
-                    {'opcao': '3', 'nome': 'Pesquisar por Tipo de Contrato', 'handler': 'pesquisar', 'key': 'pesquisar_contrato'},
-                    {'opcao': '4', 'nome': 'Remover por ID', 'handler': 'remover'}
+                    {'opcao': '2', 'nome': 'Exibir Um por ID', 'handler': 'exibir_um'},
+                    {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir'},
+                    {'opcao': '4', 'nome': 'Alterar Perfil de Acesso', 'handler': 'alterar_perfil_funcionario'}, 
+                    {'opcao': '5', 'nome': 'Pesquisar por Nome', 'handler': 'pesquisar', 'key': 'pesquisar_nome'},
+                    {'opcao': '6', 'nome': 'Pesquisar por Tipo de Contrato', 'handler': 'pesquisar', 'key': 'pesquisar_contrato'},
+                    {'opcao': '7', 'nome': 'Remover por ID', 'handler': 'remover'}
                 ],
+                'insert_fields': ['Nome', 'Telefone', 'Email', 'Salário', 'Cargo', 'Tipo de Contrato (CLT/PJ/Estágio)', 'ID do Perfil de Acesso'],
                 'prompts': {
-                    'alterar_perfil': 'Digite o NOVO ID do perfil de acesso',
+                    'pesquisar_nome': 'Digite o nome ou parte do nome do funcionário',
                     'pesquisar_contrato': 'Digite o tipo de contrato (CLT, PJ, Estágio)'
                 }
             },
@@ -96,13 +113,26 @@ MENU_CONFIG = {
                 'nome': 'Perfis de Acesso',
                 'queries': {
                     'listar': cadastros_queries.LISTAR_TODOS_PERFIS_ACESSO,
+                    'exibir_um': cadastros_queries.SELECIONAR_PERFIL_ACESSO_POR_ID,
+                    'inserir': cadastros_queries.INSERIR_PERFIL_ACESSO,
+                    'pesquisar_nome': cadastros_queries.PESQUISAR_PERFIL_ACESSO_POR_NOME,
+                    'alterar_descricao': cadastros_queries.ATUALIZAR_DESCRICAO_PERFIL_ACESSO,
                     'remover': cadastros_queries.REMOVER_PERFIL_ACESSO,
                     'check_delete': cadastros_queries.VERIFICAR_FUNCIONARIOS_POR_PERFIL
                 },
-                 'menu_ops': [
+                'menu_ops': [
                     {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
-                    {'opcao': '2', 'nome': 'Remover (com verificação)', 'handler': 'remover_seguro'}
-                ]
+                    {'opcao': '2', 'nome': 'Exibir Um por ID (Interativo)', 'handler': 'exibir_um_perfil_interativo'},
+                    {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir'},
+                    {'opcao': '4', 'nome': 'Alterar Descrição', 'handler': 'alterar', 'key': 'alterar_descricao'},
+                    {'opcao': '5', 'nome': 'Pesquisar por Nome', 'handler': 'pesquisar', 'key': 'pesquisar_nome'},
+                    {'opcao': '6', 'nome': 'Remover (com verificação)', 'handler': 'remover_seguro'}
+                ],
+                'insert_fields': ['Nome do Perfil', 'Descrição'],
+                'prompts': {
+                    'alterar_descricao': 'Digite a NOVA descrição para o perfil',
+                    'pesquisar_nome': 'Digite o nome ou parte do nome do perfil'
+                }
             }
         }
     },
@@ -352,6 +382,36 @@ def alterar_perfil_funcionario(db, config, **kwargs):
     else:
         print("\nFalha ao atualizar o perfil. Verifique se o ID do funcionário existe.")
 
+def exibir_um_perfil_interativo(db, config, **kwargs):
+    """Handler especializado para exibir um perfil de acesso, listando as opções primeiro."""
+    print(f"\n--- EXIBINDO UM: {config['nome']} ---")
+    
+    # 1. Busca e exibe a lista de todos os perfis
+    perfis, desc_lista = db.fetch_query(config['queries']['listar'])
+    if not perfis:
+        print("Nenhum perfil de acesso cadastrado para exibir.")
+        return
+
+    print("Perfis de Acesso Disponíveis:")
+    perfis_disponiveis = {str(p[0]): p[1] for p in perfis} # Mapeia ID -> Nome
+    for perfil_id, nome in perfis_disponiveis.items():
+        print(f"  ID: {perfil_id} - {nome}")
+
+    # 2. Pede ao usuário para escolher um ID da lista
+    while True:
+        escolha_id = input("\nDigite o ID do perfil que deseja ver em detalhes: ")
+        if escolha_id in perfis_disponiveis:
+            break
+        else:
+            print("Erro: ID inválido. Por favor, escolha um da lista acima.")
+
+    # 3. Busca e exibe os detalhes completos do perfil escolhido
+    query = config['queries']['exibir_um']
+    resultados, description = db.fetch_query(query, (int(escolha_id),))
+    
+    print("\nDetalhes do Perfil de Acesso:")
+    print(formatar_resultados(resultados, description))
+
 # Mapeamento de strings de 'handler' para as funções reais
 CRUD_HANDLERS = {
     'listar': listar_registros,
@@ -362,7 +422,8 @@ CRUD_HANDLERS = {
     'remover': remover_registro,
     'remover_seguro': remover_seguro,
     'alterar_status_especialidade': alterar_status_especialidade,
-    'alterar_perfil_funcionario': alterar_perfil_funcionario
+    'alterar_perfil_funcionario': alterar_perfil_funcionario,
+    'exibir_um_perfil_interativo': exibir_um_perfil_interativo
 }
 
 # --- Funções de Navegação nos Menus ---
