@@ -80,6 +80,20 @@ LISTAR_TODOS_MEDICOS = "" \
 "FROM cadastros.medicos " \
 "ORDER BY id;"
 
+LISTAR_MEDICOS_COM_ESPECIALIDADE = "" \
+"SELECT " \
+"    m.id, " \
+"    m.nome, " \
+"    e.nome AS especialidade " \
+"FROM " \
+"    cadastros.medicos AS m " \
+"JOIN " \
+"    cadastros.especialidades AS e ON m.especialidade_id = e.id " \
+"WHERE " \
+"    e.especialidade_ativa = TRUE " \
+"ORDER BY " \
+"    m.id;"
+
 SELECIONAR_MEDICO_POR_CRM = "" \
 "SELECT * " \
 "FROM cadastros.medicos " \

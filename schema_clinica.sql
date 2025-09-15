@@ -110,7 +110,8 @@ CREATE TABLE cadastros.pacientes (
 CREATE TABLE clinico.consultas (
     id SERIAL PRIMARY KEY,
     paciente_id INTEGER NOT NULL REFERENCES cadastros.pacientes(id) ON DELETE CASCADE,
-    medico_id INTEGER NOT NULL REFERENCES cadastros.medicos(id) ON DELETE SET NULL,
+    medico_id INTEGER NOT NULL REFERENCES cadastros.medicos(id) ON DELETE RESTRICT,
+    funcionario_id INTEGER REFERENCES cadastros.funcionarios(id) ON DELETE SET NULL,
     data TIMESTAMP WITHOUT TIME ZONE NOT NULL,
     motivo TEXT,
     diagnostico TEXT,
@@ -129,7 +130,7 @@ CREATE TABLE clinico.receitas (
 -- Tabela de Pagamentos (Schema: financeiro)
 CREATE TABLE financeiro.pagamentos (
     id SERIAL PRIMARY KEY,
-    consulta_id INTEGER NOT NULL REFERENCES clinico.consultas(id) ON DELETE CASCADE,
+    consulta_id INTEGER NOT NULL REFERENCES clinico.consultas(id) ON DELETE RESTRICT,
     valor NUMERIC(10,2) NOT NULL,
     metodo VARCHAR(30) CHECK (metodo IN ('Dinheiro', 'Cartão', 'Transferência', 'Seguro')),
     pago BOOLEAN DEFAULT FALSE,

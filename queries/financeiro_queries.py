@@ -39,3 +39,8 @@ SELECIONAR_PAGAMENTO_POR_ID = "" \
 "SELECT * " \
 "FROM financeiro.pagamentos " \
 "WHERE id = %s;"
+
+VERIFICAR_PAGAMENTO_POR_CONSULTA = "" \
+"SELECT COUNT(id) " \
+"FROM financeiro.pagamentos " \
+"WHERE consulta_id = %s;"

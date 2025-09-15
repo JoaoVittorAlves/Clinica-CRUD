@@ -143,12 +143,21 @@ MENU_CONFIG = {
                 'nome': 'Consultas',
                 'queries': { 
                     'listar': clinico_queries.LISTAR_TODAS_CONSULTAS,
+                    'exibir_um': clinico_queries.SELECIONAR_CONSULTA_POR_ID,
+                    'inserir': clinico_queries.INSERIR_CONSULTA,
+                    'remover': clinico_queries.REMOVER_CONSULTA,
+                    'alterar_status': clinico_queries.ATUALIZAR_CONSULTA,
                     'pesquisar_paciente': clinico_queries.PESQUISAR_CONSULTA_POR_NOME_PACIENTE
                 },
                 'menu_ops': [
                     {'opcao': '1', 'nome': 'Listar Todas', 'handler': 'listar'},
-                    {'opcao': '2', 'nome': 'Pesquisar por Nome do Paciente', 'handler': 'pesquisar', 'key': 'pesquisar_paciente'}
+                    {'opcao': '2', 'nome': 'Exibir Uma por ID', 'handler': 'exibir_um'},
+                    {'opcao': '3', 'nome': 'Agendar Nova Consulta', 'handler': 'inserir_consulta_interativo'},
+                    {'opcao': '4', 'nome': 'Atualizar Status/Diagnóstico', 'handler': 'alterar_consulta_status'},
+                    {'opcao': '5', 'nome': 'Pesquisar por Nome do Paciente', 'handler': 'pesquisar', 'key': 'pesquisar_paciente'},
+                    {'opcao': '6', 'nome': 'Remover/Cancelar Consulta', 'handler': 'remover_consulta_seguro'}
                 ],
+                'delete_warning': 'Ao remover esta consulta, as receitas associadas serão PERMANENTEMENTE apagadas.',
                 'prompts': {
                     'pesquisar_paciente': 'Digite o nome do paciente'
                 }
@@ -182,11 +191,17 @@ MENU_CONFIG = {
                 'nome': 'Pagamentos',
                 'queries': { 
                     'listar': financeiro_queries.LISTAR_TODOS_PAGAMENTOS,
+                    'exibir_um': financeiro_queries.SELECIONAR_PAGAMENTO_POR_ID,
+                    'inserir': financeiro_queries.INSERIR_PAGAMENTO,
+                    'alterar_status': financeiro_queries.ATUALIZAR_STATUS_PAGAMENTO,
                     'pesquisar_paciente': financeiro_queries.PESQUISAR_PAGAMENTO_POR_NOME_PACIENTE
                 },
                 'menu_ops': [
                     {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
-                    {'opcao': '2', 'nome': 'Pesquisar por Nome do Paciente', 'handler': 'pesquisar', 'key': 'pesquisar_paciente'}
+                    {'opcao': '2', 'nome': 'Exibir Um por ID', 'handler': 'exibir_um'},
+                    {'opcao': '3', 'nome': 'Lançar Novo Pagamento', 'handler': 'inserir_pagamento_interativo'},
+                    {'opcao': '4', 'nome': "Marcar como 'Pago'", 'handler': 'marcar_como_pago'},
+                    {'opcao': '5', 'nome': 'Pesquisar por Nome do Paciente', 'handler': 'pesquisar', 'key': 'pesquisar_paciente'}
                 ],
                 'prompts': {
                     'pesquisar_paciente': 'Digite o nome do paciente'
@@ -195,6 +210,7 @@ MENU_CONFIG = {
         }
     }
 }
+
 
 
 # --- Funções Auxiliares de Interface ---
@@ -208,17 +224,14 @@ def formatar_resultados(resultados, cursor_description):
     if not resultados: return "Nenhum resultado encontrado."
     
     colunas = [desc[0] for desc in cursor_description]
-    # Calcula a largura de cada coluna
     larguras = [len(col) for col in colunas]
     for linha in resultados:
         for i, item in enumerate(linha):
             larguras[i] = max(larguras[i], len(str(item)))
     
-    # Monta o cabeçalho
     cabecalho = " | ".join(f"{col.upper():<{larguras[i]}}" for i, col in enumerate(colunas))
     separador = "-+-".join("-" * w for w in larguras)
     
-    # Monta as linhas de dados
     linhas_dados = []
     for linha in resultados:
         linhas_dados.append(" | ".join(f"{str(item):<{larguras[i]}}" for i, item in enumerate(linha)))
@@ -283,17 +296,28 @@ def pesquisar_registros(db, config, key):
 
 def remover_registro(db, config, **kwargs):
     print(f"\n--- REMOVENDO: {config['nome']} ---")
-    query = config['queries']['remover']
+    query = config['queries'].get('remover')
+    if not query: return print("Operação não configurada.")
     
     try:
         registro_id = int(input(f"Digite o ID do(a) {config['nome']} que deseja remover: "))
     except ValueError: return print("Erro: ID inválido.")
 
-    if input(f"Tem certeza? (s/n): ").lower() != 's': return print("Operação cancelada.")
+    alerta = config.get('delete_warning')
+    if alerta:
+        print("\n" + "="*70)
+        print(f"ATENÇÃO: {alerta}")
+        print("="*70)
+
+    if input(f"\nTem certeza que deseja remover o registro ID {registro_id}? (s/n): ").lower() != 's':
+        return print("Operação cancelada.")
 
     if db.execute_query(query, (registro_id,)):
         print(f"\nRegistro ID {registro_id} removido com sucesso!")
-    else: print("\nFalha ao remover. Verifique se o ID existe.")
+    else:
+        print("\nFalha ao remover. Verifique se o ID existe.")
+
+# --- Funções Específicas de CRUD ---
 
 def remover_seguro(db, config, **kwargs):
     print(f"\n--- REMOVENDO: {config['nome']} (com verificação) ---")
@@ -302,13 +326,13 @@ def remover_seguro(db, config, **kwargs):
     except ValueError: return print("Erro: ID inválido.")
         
     check_query = config['queries']['check_delete']
-    resultado = db.execute_and_fetch_one(check_query, (registro_id,))
-    vinculados = resultado[0] if resultado else 0
+    resultado, desc = db.fetch_query(check_query, (registro_id,))
+    vinculados = resultado[0][0] if resultado else 0
 
     if vinculados > 0:
         print(f"\n[ERRO] Não é possível remover: {vinculados} registro(s) dependem deste.")
     else:
-        remover_registro(db, config) # Reutiliza a função de remoção padrão após a checagem
+        remover_registro(db, config)
 
 def alterar_status_especialidade(db, config, **kwargs):
     print(f"\n--- ALTERANDO STATUS: {config['nome']} ---")
@@ -412,6 +436,129 @@ def exibir_um_perfil_interativo(db, config, **kwargs):
     print("\nDetalhes do Perfil de Acesso:")
     print(formatar_resultados(resultados, description))
 
+def remover_consulta_seguro(db, config, **kwargs):
+    print(f"\n--- REMOVENDO/CANCELANDO: {config['nome']} ---")
+    try:
+        registro_id = int(input(f"Digite o ID da {config['nome']} que deseja gerenciar: "))
+    except ValueError: return print("Erro: ID inválido.")
+        
+    check_query = financeiro_queries.VERIFICAR_PAGAMENTO_POR_CONSULTA
+    resultado, desc = db.fetch_query(check_query, (registro_id,))
+    vinculados = resultado[0][0] if resultado else 0
+
+    if vinculados > 0:
+        print(f"\n[AVISO] Esta consulta possui {vinculados} pagamento(s) e não pode ser removida permanentemente.")
+        confirmacao = input("Deseja alterar o status desta consulta para 'Cancelada'? (s/n): ").lower()
+        if confirmacao == 's':
+            query_update = config['queries']['alterar_status']
+            if db.execute_query(query_update, ('Cancelada', 'Cancelado pelo sistema', registro_id)):
+                print("\nConsulta cancelada com sucesso!")
+            else:
+                print("\nFalha ao cancelar a consulta.")
+        else:
+            print("Operação cancelada.")
+    else:
+        remover_registro(db, config)
+
+def inserir_consulta_interativo(db, config, **kwargs):
+    """Handler especializado para agendar uma nova consulta de forma interativa."""
+    print(f"\n--- AGENDANDO NOVA CONSULTA ---")
+    
+    # 1. Lista e seleciona o paciente 
+    listar_registros(db, MENU_CONFIG['cadastros']['tabelas']['pacientes'])
+    try:
+        paciente_id = int(input("\nDigite o ID do Paciente para a consulta: "))
+    except ValueError:
+        print("Erro: ID inválido.")
+        return
+
+    # 2. Lista os médicos 
+    print("\n--- Selecione o Médico ---")
+    resultados_medicos, description_medicos = db.fetch_query(cadastros_queries.LISTAR_MEDICOS_COM_ESPECIALIDADE)
+    print(formatar_resultados(resultados_medicos, description_medicos))
+    
+    try:
+        medico_id = int(input("\nDigite o ID do Médico para a consulta: "))
+    except ValueError:
+        print("Erro: ID inválido.")
+        return
+
+    # 3. Pede os dados restantes
+    data = input("Data e Hora da consulta (YYYY-MM-DD HH:MM): ")
+    motivo = input("Motivo da consulta: ")
+    status = "Agendada"
+
+    nova_consulta = (paciente_id, medico_id, data, motivo, status)
+    resultado = db.execute_and_fetch_one(config['queries']['inserir'], nova_consulta)
+    
+    if resultado:
+        print(f"\nConsulta agendada com sucesso! ID: {resultado[0]}")
+    else:
+        print("\nFalha ao agendar consulta.")
+
+def alterar_consulta_status(db, config, **kwargs):
+    """Handler especializado para alterar o status e diagnóstico de uma consulta."""
+    print(f"\n--- ATUALIZANDO CONSULTA ---")
+    try:
+        consulta_id = int(input("Digite o ID da consulta que deseja alterar: "))
+    except ValueError: return print("Erro: ID inválido.")
+    
+    print("\nStatus disponíveis: Agendada, Realizada, Cancelada")
+    novo_status = input("Digite o NOVO status da consulta: ")
+    diagnostico = input("Digite o diagnóstico (ou deixe em branco): ")
+
+    if db.execute_query(config['queries']['alterar_status'], (novo_status, diagnostico, consulta_id)):
+        print(f"\nConsulta ID {consulta_id} atualizada com sucesso!")
+    else:
+        print("\nFalha ao atualizar. Verifique se o ID da consulta existe.")
+
+def inserir_pagamento_interativo(db, config, **kwargs):
+    """Handler especializado para lançar um novo pagamento de forma interativa."""
+    print(f"\n--- LANÇANDO NOVO PAGAMENTO ---")
+    
+    print("\nConsultas disponíveis para vincular o pagamento:")
+    listar_registros(db, MENU_CONFIG['clinico']['tabelas']['consultas'])
+    try:
+        consulta_id = int(input("\nDigite o ID da Consulta para este pagamento: "))
+    except ValueError:
+        print("Erro: ID inválido.")
+        return
+
+    valor = input("Valor do pagamento (ex: 350.00): ")
+    metodo = input("Método de pagamento (Dinheiro, Cartão, Transferência, Seguro): ")
+    pago = input("O pagamento já foi efetuado? (s/n): ").lower() == 's'
+    data_pagamento = 'NOW()' if pago else None # Usa a data/hora atual se foi pago
+
+    novo_pagamento = (consulta_id, float(valor), metodo, pago, data_pagamento)
+    resultado = db.execute_and_fetch_one(config['queries']['inserir'], novo_pagamento)
+    
+    if resultado:
+        print(f"\nPagamento lançado com sucesso! ID: {resultado[0]}")
+    else:
+        print("\nFalha ao lançar pagamento.")
+
+
+def marcar_como_pago(db, config, **kwargs):
+    """Handler especializado para marcar um pagamento como 'pago'."""
+    print(f"\n--- ATUALIZANDO STATUS DE PAGAMENTO ---")
+    
+    print("\nPagamentos com status 'Não Pago':")
+    query_pendentes = "SELECT id, consulta_id, valor, metodo FROM financeiro.pagamentos WHERE pago = FALSE ORDER BY id;"
+    pendentes, desc = db.fetch_query(query_pendentes)
+    print(formatar_resultados(pendentes, desc))
+    
+    try:
+        pagamento_id = int(input("\nDigite o ID do pagamento que deseja marcar como 'PAGO': "))
+    except ValueError:
+        print("Erro: ID inválido.")
+        return
+    
+    if db.execute_query(config['queries']['alterar_status'], (pagamento_id,)):
+        print(f"\nPagamento ID {pagamento_id} marcado como PAGO com sucesso!")
+    else:
+        print("\nFalha ao atualizar o pagamento. Verifique se o ID existe.")
+
+
 # Mapeamento de strings de 'handler' para as funções reais
 CRUD_HANDLERS = {
     'listar': listar_registros,
@@ -423,7 +570,12 @@ CRUD_HANDLERS = {
     'remover_seguro': remover_seguro,
     'alterar_status_especialidade': alterar_status_especialidade,
     'alterar_perfil_funcionario': alterar_perfil_funcionario,
-    'exibir_um_perfil_interativo': exibir_um_perfil_interativo
+    'exibir_um_perfil_interativo': exibir_um_perfil_interativo,
+    'remover_consulta_seguro': remover_consulta_seguro,
+    'inserir_consulta_interativo': inserir_consulta_interativo,
+    'alterar_consulta_status': alterar_consulta_status,
+    'inserir_pagamento_interativo': inserir_pagamento_interativo, 
+    'marcar_como_pago': marcar_como_pago,
 }
 
 # --- Funções de Navegação nos Menus ---
