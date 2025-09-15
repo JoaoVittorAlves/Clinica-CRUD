@@ -96,7 +96,7 @@ CREATE TABLE cadastros.pacientes (
     email VARCHAR(120) UNIQUE,
     cpf VARCHAR(11) UNIQUE,
     data_registo TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    telefone VARCHAR(9) UNIQUE,
+    telefone VARCHAR(20) UNIQUE,
     logradouro VARCHAR(255),
     numero VARCHAR(20),
     complemento VARCHAR(100),
@@ -138,40 +138,61 @@ CREATE TABLE financeiro.pagamentos (
 );
 
 
--- 3. INSERÇÃO DE DADOS DE EXEMPLO 
+-- 3. INSERÇÃO DE DADOS DE EXEMPLO
 
+-- Perfis de Acesso
 INSERT INTO cadastros.perfis_acesso (nome, descricao) VALUES
-('Administrador', 'Acesso total a todas as funcionalidades do sistema.'),
-('Recepção', 'Acesso ao agendamento, cadastro de pacientes e pagamentos.'),
-('Faturamento', 'Acesso apenas aos módulos financeiros.');
+('Administrador', 'Acesso total ao sistema.'),
+('Recepção', 'Acesso a agendamentos e cadastros de pacientes.'),
+('Faturamento', 'Acesso a relatórios e gestão de pagamentos.'),
+('Corpo Técnico', 'Acesso a prontuários e agendamentos clínicos.');
 
-INSERT INTO cadastros.funcionarios (nome, email, salario, cargo, tipo_contrato, perfil_acesso_id, cidade, sigla_estado) VALUES
-('Julia Mendes', 'julia.mendes@clinica.com', 2500.00, 'Recepcionista', 'CLT', 2, 'João Pessoa', 'PB'),
-('Marcos Batista', 'marcos.batista@clinica.com', 4500.00, 'Administrador Financeiro', 'CLT', 1, 'Cabedelo', 'PB');
-
+-- Especialidades da Clínica
 INSERT INTO cadastros.especialidades (nome) VALUES
 ('Cardiologia'),
 ('Dermatologia'),
-('Ortopedia');
+('Ortopedia'),
+('Medicina Esportiva'),
+('Fisioterapia'),
+('Nutrição Esportiva');
 
-INSERT INTO cadastros.medicos (nome, email, crm, especialidade_id, cidade, sigla_estado, cep) VALUES
-('Dr. Carlos Andrade', 'carlos.andrade@med.com', 'CRM-SP 12345', 1, 'São Paulo', 'SP', '01000-000'),
-('Dra. Ana Beatriz', 'ana.beatriz@med.com', 'CRM-PB 54321', 2, 'João Pessoa', 'PB', '58000-000');
+-- Funcionários da Clínica
+INSERT INTO cadastros.funcionarios (nome, email, salario, cargo, tipo_contrato, perfil_acesso_id, cidade, sigla_estado) VALUES
+('Taylor Swift', 'taylor.swift@clinica.com', 2500.00, 'Recepcionista', 'CLT', 2, 'São Paulo', 'SP'),
+('Harry Styles', 'harrystyles@clinica.com', 8500.00, 'Diretor Administrativo', 'CLT', 1, 'Recife', 'PE'),
+('Márcio Tannure', 'marcio.tannure@clinica.com', 12000.00, 'Fisioterapeuta Chefe', 'PJ', 4, 'Rio de Janeiro', 'RJ'),
+('Georgiana Maria', 'georgiana@hotmail.com', 30000.00, 'Diretora de Markting Digital', 'CLT', 1, 'João Pessoa', 'PB');
 
+-- Médicos da Clínica
+INSERT INTO cadastros.medicos (nome, email, crm, especialidade_id, cidade, sigla_estado) VALUES
+('Dr. Tite', 'tite@clinica.com', 'CRM-RJ 1981', 4, 'Rio de Janeiro', 'RJ'),
+('Dr. Zico', 'zico@clinica.com', 'CRM-RJ 1953', 3, 'Rio de Janeiro', 'RJ'),
+('Dra. Kiara Maria Chihuahua', 'kiaramariachihuahua@clinica.com', 'CRM-RJ 2019', 6, 'João Pessoa', 'PB'),
+('Dr. Joao Vittor de Araujo', 'joaovittor@gmail.com', 'CRM-PB 2020', 1, 'João Pessoa', 'PB');
+
+-- Pacientes
 INSERT INTO cadastros.pacientes (nome, sexo, email, cpf, telefone, cidade, sigla_estado) VALUES
-('João da Silva', 'M', 'joao.silva@email.com', '11122233344', '988776655', 'João Pessoa', 'PB'),
-('Maria Oliveira', 'F', 'maria.oliveira@email.com', '55566677788', '999887766', 'Bayeux', 'PB'),
-('Pedro Souza', 'M', 'pedro.souza@email.com', '99988877766', '977665544', 'Santa Rita', 'PB');
+('Gabriel Barbosa Almeida', 'M', 'gabigol@flamengo.com', '11111111111', '21999999999', 'Rio de Janeiro', 'RJ'),
+('Giorgian De Arrascaeta', 'M', 'arrasca@flamengo.com', '22222222222', '21988888888', 'Rio de Janeiro', 'RJ'),
+('Bruno Henrique Pinto', 'M', 'bh27@flamengo.com', '33333333333', '21977777777', 'Rio de Janeiro', 'RJ'),
+('Pedro Guilherme', 'M', 'pedro9@flamengo.com', '44444444444', '21966666666', 'Cabo Frio', 'RJ');
 
-INSERT INTO clinico.consultas (paciente_id, medico_id, data, motivo, diagnostico, status) VALUES
-(1, 2, '2025-08-20 10:00:00', 'Check-up dermatológico', 'Sinais de exposição solar excessiva', 'Realizada'),
-(2, 2, '2025-08-22 14:30:00', 'Manchas na pele', 'Dermatite de contato', 'Realizada'),
-(3, 1, '2025-11-05 09:00:00', 'Check-up cardiológico anual', NULL, 'Agendada');
+-- Consultas Agendadas
+-- As consultas são agendadas pela recepcionista (funcionario_id = 1)
+INSERT INTO clinico.consultas (paciente_id, medico_id, funcionario_id, data, motivo, diagnostico, status) VALUES
+(1, 1, 1, '2025-09-10 09:00:00', 'Avaliação de performance pré-temporada', 'Condicionamento físico excelente', 'Realizada'),
+(2, 2, 1, '2025-09-12 11:30:00', 'Pancada no joelho esquerdo durante treino', 'Trauma leve, sem lesão ligamentar', 'Realizada'),
+(3, 1, 1, '2025-10-15 15:00:00', 'Exames de rotina', NULL, 'Agendada'),
+(2, 3, 1, '2025-10-18 10:00:00', 'Consulta com nutricionista', 'Planejamento de dieta para ganho de massa', 'Agendada');
 
+-- Receitas geradas nas consultas
 INSERT INTO clinico.receitas (consulta_id, medicamento, dosagem, instrucoes) VALUES
-(1, 'Protetor Solar FPS 60', 'N/A', 'Aplicar no rosto e áreas expostas diariamente'),
-(2, 'Hidrocortisona (pomada)', '1%', 'Aplicar na área afetada 2 vezes ao dia');
+(1, 'Suplemento Vitamínico C e Zinco', '1 cápsula', 'Tomar 1 cápsula por dia, após o café da manhã, por 30 dias.'),
+(2, 'Gelo e repouso', '20 minutos', 'Aplicar compressa de gelo no local, 3 vezes ao dia.'),
+(4, 'Dieta Hipercalórica e Proteica', 'N/A', 'Seguir o plano alimentar entregue em anexo.');
 
+-- Pagamentos das consultas realizadas
 INSERT INTO financeiro.pagamentos (consulta_id, valor, metodo, pago, data_pagamento) VALUES
-(1, 350.00, 'Cartão', TRUE, '2025-10-20 11:00:00'),
-(2, 300.00, 'Seguro', TRUE, '2025-10-22 15:00:00');
+(1, 550.00, 'Seguro', TRUE, '2025-10-10 10:00:00'),
+(2, 450.00, 'Transferência', TRUE, '2025-10-12 12:00:00'),
+(4, 350.00, 'Cartão', TRUE, '2025-10-18 11:00:00');

@@ -46,13 +46,13 @@ MENU_CONFIG = {
                 'menu_ops': [
                     {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
                     {'opcao': '2', 'nome': 'Exibir Um por CRM', 'handler': 'exibir_um', 'prompt': 'Digite o CRM do médico'},
-                    {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir'},
+                    # MODIFICAÇÃO AQUI: troque 'inserir' por 'inserir_medico_interativo'
+                    {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir_medico_interativo'},
                     {'opcao': '4', 'nome': 'Alterar Salário', 'handler': 'alterar', 'key': 'alterar_salario'},
                     {'opcao': '5', 'nome': 'Pesquisar por Nome', 'handler': 'pesquisar', 'key': 'pesquisar_nome'},
                     {'opcao': '6', 'nome': 'Pesquisar por Especialidade', 'handler': 'pesquisar', 'key': 'pesquisar_especialidade'},
                     {'opcao': '7', 'nome': 'Remover por ID', 'handler': 'remover'}
                 ],
-                'insert_fields': ['Nome', 'Telefone', 'Email', 'CRM', 'Salário', 'ID da Especialidade', 'Logradouro', 'Número', 'Complemento', 'Bairro', 'Cidade', 'Estado (UF)', 'CEP'],
                 'prompts': {
                     'alterar_salario': 'Digite o NOVO salário para o médico',
                     'pesquisar_nome': 'Digite o nome do médico',
@@ -97,13 +97,12 @@ MENU_CONFIG = {
                 'menu_ops': [
                     {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
                     {'opcao': '2', 'nome': 'Exibir Um por ID', 'handler': 'exibir_um'},
-                    {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir'},
+                    {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir_funcionario_interativo'},
                     {'opcao': '4', 'nome': 'Alterar Perfil de Acesso', 'handler': 'alterar_perfil_funcionario'}, 
                     {'opcao': '5', 'nome': 'Pesquisar por Nome', 'handler': 'pesquisar', 'key': 'pesquisar_nome'},
                     {'opcao': '6', 'nome': 'Pesquisar por Tipo de Contrato', 'handler': 'pesquisar', 'key': 'pesquisar_contrato'},
                     {'opcao': '7', 'nome': 'Remover por ID', 'handler': 'remover'}
                 ],
-                'insert_fields': ['Nome', 'Telefone', 'Email', 'Salário', 'Cargo', 'Tipo de Contrato (CLT/PJ/Estágio)', 'ID do Perfil de Acesso'],
                 'prompts': {
                     'pesquisar_nome': 'Digite o nome ou parte do nome do funcionário',
                     'pesquisar_contrato': 'Digite o tipo de contrato (CLT, PJ, Estágio)'
@@ -239,7 +238,7 @@ def formatar_resultados(resultados, cursor_description):
     return "\n".join([cabecalho, separador] + linhas_dados)
 
 
-# --- Funções Genéricas e Específicas de CRUD ---
+# --- Funções Genéricas de CRUD ---
 
 def listar_registros(db, config, **kwargs):
     print(f"\n--- LISTANDO: {config['nome']} ---")
@@ -558,6 +557,92 @@ def marcar_como_pago(db, config, **kwargs):
     else:
         print("\nFalha ao atualizar o pagamento. Verifique se o ID existe.")
 
+def inserir_medico_interativo(db, config, **kwargs):
+    """Handler especializado para inserir um novo médico de forma interativa."""
+    print(f"\n--- INSERINDO NOVO MÉDICO ---")
+    
+    nome = input("Nome: ")
+    telefone = input("Telefone: ")
+    email = input("Email: ")
+    crm = input("CRM: ")
+    salario = input("Salário: ")
+
+    print("\nBuscando especialidades disponíveis...")
+    especialidades, desc = db.fetch_query(cadastros_queries.LISTAR_TODAS_ESPECIALIDADES)
+    if not especialidades:
+        print("Nenhuma especialidade cadastrada. Crie uma especialidade antes de cadastrar um médico.")
+        return
+
+    print("Especialidades Disponíveis:")
+    espec_disponiveis = {str(esp[0]): esp[1] for esp in especialidades}
+    for esp_id, esp_nome in espec_disponiveis.items():
+        print(f"  ID: {esp_id} - {esp_nome}")
+    
+    while True:
+        especialidade_id_str = input("\nDigite o ID da Especialidade para o médico: ")
+        if especialidade_id_str in espec_disponiveis:
+            break
+        else:
+            print("Erro: ID de especialidade inválido. Por favor, escolha um da lista acima.")
+
+    print("\n--- Endereço do Médico ---")
+    logradouro = input("Logradouro: ")
+    numero = input("Número: ")
+    complemento = input("Complemento: ")
+    bairro = input("Bairro: ")
+    cidade = input("Cidade: ")
+    estado = input("Estado (UF): ")
+    cep = input("CEP: ")
+
+    novo_medico = (
+        nome, telefone, email, crm, float(salario), int(especialidade_id_str),
+        logradouro, numero, complemento, bairro, cidade, estado, cep
+    )
+    
+    resultado = db.execute_and_fetch_one(config['queries']['inserir'], novo_medico)
+    if resultado:
+        print(f"\nMédico '{nome}' inserido com sucesso! ID: {resultado[0]}")
+    else:
+        print("\nFalha ao inserir médico.")
+
+def inserir_funcionario_interativo(db, config, **kwargs):
+    """Handler especializado para inserir um novo funcionário de forma interativa."""
+    print(f"\n--- INSERINDO NOVO FUNCIONÁRIO ---")
+    
+    nome = input("Nome: ")
+    telefone = input("Telefone: ")
+    email = input("Email: ")
+    salario = input("Salário: ")
+    cargo = input("Cargo: ")
+    tipo_contrato = input("Tipo de Contrato (CLT/PJ/Estágio): ")
+
+    print("\nBuscando perfis de acesso disponíveis...")
+    perfis, desc = db.fetch_query(cadastros_queries.LISTAR_TODOS_PERFIS_ACESSO)
+    if not perfis:
+        print("Nenhum perfil de acesso cadastrado. Crie um perfil antes de cadastrar um funcionário.")
+        return
+
+    print("Perfis de Acesso Disponíveis:")
+    perfis_disponiveis = {str(p[0]): p[1] for p in perfis}
+    for perfil_id, perfil_nome in perfis_disponiveis.items():
+        print(f"  ID: {perfil_id} - {perfil_nome}")
+    
+    while True:
+        perfil_id_str = input("\nDigite o ID do Perfil de Acesso para o funcionário: ")
+        if perfil_id_str in perfis_disponiveis:
+            break
+        else:
+            print("Erro: ID de perfil inválido. Por favor, escolha um da lista acima.")
+
+    novo_funcionario = (
+        nome, telefone, email, float(salario), cargo, tipo_contrato, int(perfil_id_str)
+    )
+    
+    resultado = db.execute_and_fetch_one(config['queries']['inserir'], novo_funcionario)
+    if resultado:
+        print(f"\nFuncionário '{nome}' inserido com sucesso! ID: {resultado[0]}")
+    else:
+        print("\nFalha ao inserir funcionário.")
 
 # Mapeamento de strings de 'handler' para as funções reais
 CRUD_HANDLERS = {
@@ -576,6 +661,8 @@ CRUD_HANDLERS = {
     'alterar_consulta_status': alterar_consulta_status,
     'inserir_pagamento_interativo': inserir_pagamento_interativo, 
     'marcar_como_pago': marcar_como_pago,
+    'inserir_medico_interativo': inserir_medico_interativo,
+    'inserir_funcionario_interativo': inserir_funcionario_interativo,
 }
 
 # --- Funções de Navegação nos Menus ---
