@@ -46,7 +46,6 @@ MENU_CONFIG = {
                 'menu_ops': [
                     {'opcao': '1', 'nome': 'Listar Todos', 'handler': 'listar'},
                     {'opcao': '2', 'nome': 'Exibir Um por CRM', 'handler': 'exibir_um', 'prompt': 'Digite o CRM do médico'},
-                    # MODIFICAÇÃO AQUI: troque 'inserir' por 'inserir_medico_interativo'
                     {'opcao': '3', 'nome': 'Inserir Novo', 'handler': 'inserir_medico_interativo'},
                     {'opcao': '4', 'nome': 'Alterar Salário', 'handler': 'alterar', 'key': 'alterar_salario'},
                     {'opcao': '5', 'nome': 'Pesquisar por Nome', 'handler': 'pesquisar', 'key': 'pesquisar_nome'},
