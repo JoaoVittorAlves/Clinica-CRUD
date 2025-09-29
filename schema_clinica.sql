@@ -8,6 +8,7 @@
 DROP SCHEMA IF EXISTS financeiro CASCADE;
 DROP SCHEMA IF EXISTS clinico CASCADE;
 DROP SCHEMA IF EXISTS cadastros CASCADE;
+DROP SCHEMA IF EXISTS vendas CASCADE;
 
 -- 1. CRIAÇÃO DOS SCHEMAS 
 
@@ -19,6 +20,9 @@ COMMENT ON SCHEMA clinico IS 'Schema para tabelas relacionadas à operação cl�
 
 CREATE SCHEMA financeiro;
 COMMENT ON SCHEMA financeiro IS 'Schema para tabelas relacionadas a pagamentos e faturamento.';
+
+CREATE SCHEMA vendas;
+COMMENT ON SCHEMA vendas IS 'Schema para tabelas do módulo de vendas, como produtos e pedidos.';
 
 
 -- 2. CRIAÇÃO DAS TABELAS
@@ -136,7 +140,6 @@ CREATE TABLE financeiro.pagamentos (
     pago BOOLEAN DEFAULT FALSE,
     data_pagamento TIMESTAMP WITHOUT TIME ZONE
 );
-
 
 -- 3. INSERÇÃO DE DADOS DE EXEMPLO
 
