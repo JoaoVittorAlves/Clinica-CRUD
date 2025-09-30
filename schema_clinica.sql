@@ -22,7 +22,7 @@ CREATE SCHEMA financeiro;
 COMMENT ON SCHEMA financeiro IS 'Schema para tabelas relacionadas a pagamentos e faturamento.';
 
 CREATE SCHEMA vendas;
-COMMENT ON SCHEMA vendas IS 'Schema para tabelas do módulo de vendas, como produtos e pedidos.';
+COMMENT ON SCHEMA vendas IS 'Schema para tabelas do módulo de vendas, como produtos, categorias, estoque, vendas, itens e pedidos.';
 
 
 -- 2. CRIAÇÃO DAS TABELAS
@@ -110,6 +110,12 @@ CREATE TABLE cadastros.pacientes (
     cep VARCHAR(9)
 );
 
+ALTER TABLE cadastros.pacientes
+    ADD COLUMN IF NOT EXISTS torce_flamengo BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS assiste_one_piece BOOLEAN DEFAULT FALSE;
+    ADD COLUMN IF NOT EXISTS nasceu_sousa BOOLEAN DEFAULT FALSE;
+
+
 -- Tabela de Consultas (Schema: clinico)
 CREATE TABLE clinico.consultas (
     id SERIAL PRIMARY KEY,
@@ -140,6 +146,57 @@ CREATE TABLE financeiro.pagamentos (
     pago BOOLEAN DEFAULT FALSE,
     data_pagamento TIMESTAMP WITHOUT TIME ZONE
 );
+
+-- Tabela de cartegorias (schema: vendas)
+CREATE TABLE vendas.categorias (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL UNIQUE
+);
+
+-- Produtos (schema: vendas)
+CREATE TABLE vendas.produtos (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(200) NOT NULL,
+    descricao TEXT,
+    preco NUMERIC(12,2) NOT NULL CHECK (preco >= 0),
+    categoria_id INTEGER REFERENCES vendas.categorias(id) ON DELETE SET NULL,
+    fabricado_em_mari BOOLEAN DEFAULT FALSE,
+    ativo BOOLEAN DEFAULT TRUE
+);
+
+-- Estoque (separado para permitir controle isolado, schema: vendas)
+CREATE TABLE vendas.estoque (
+    produto_id INTEGER PRIMARY KEY REFERENCES vendas.produtos(id) ON DELETE CASCADE,
+    quantidade INTEGER NOT NULL CHECK (quantidade >= 0)
+);
+
+-- Vendas (schema: vendas)
+CREATE TABLE vendas.vendas (
+    id SERIAL PRIMARY KEY,
+    cliente_id INTEGER NOT NULL REFERENCES cadastros.pacientes(id) ON DELETE RESTRICT,
+    vendedor_id INTEGER NOT NULL REFERENCES cadastros.funcionarios(id) ON DELETE RESTRICT,
+    data TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    total_bruto NUMERIC(12,2) NOT NULL CHECK (total_bruto >= 0),
+    desconto_aplicado NUMERIC(12,2) NOT NULL CHECK (desconto_aplicado >= 0),
+    total_liquido NUMERIC(12,2) NOT NULL CHECK (total_liquido >= 0),
+    forma_pagamento VARCHAR(30) NOT NULL CHECK (forma_pagamento IN ('Dinheiro','Cartão','Boleto','PIX','Berries')),
+    status_pagamento VARCHAR(30) NOT NULL DEFAULT 'Pendente' CHECK (status_pagamento IN ('Pendente','Confirmado','Falhado'))
+);
+
+-- Itens da Venda (schema: vendas)
+CREATE TABLE vendas.itens_venda (
+    id SERIAL PRIMARY KEY,
+    venda_id INTEGER NOT NULL REFERENCES vendas.vendas(id) ON DELETE CASCADE,
+    produto_id INTEGER NOT NULL REFERENCES vendas.produtos(id) ON DELETE RESTRICT,
+    quantidade INTEGER NOT NULL CHECK (quantidade > 0),
+    preco_unitario NUMERIC(12,2) NOT NULL CHECK (preco_unitario >= 0)
+);
+
+
+
+
+
+
 
 -- 3. INSERÇÃO DE DADOS DE EXEMPLO
 
