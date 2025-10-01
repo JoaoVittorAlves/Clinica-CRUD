@@ -1067,24 +1067,109 @@ def pagina_vendas():
                 st.subheader("Dados Detalhados")
                 st.dataframe(df_filtrado, use_container_width=True)
 
+def pagina_cliente():
+    st.header("👤 Portal do Cliente")
+    st.write("Bem-vindo! Aqui você pode consultar seus dados e histórico de compras.")
+    st.divider()
+
+    # --- Simulação de Login: Cliente seleciona seu nome ---
+    _, pacientes_opts = carregar_dados_para_selectbox(cadastros_queries.LISTAR_TODOS_PACIENTES)
+    # Adiciona uma opção default para o selectbox
+    pacientes_opts.insert(0, "Selecione seu nome para continuar...")
+    
+    cliente_selecionado = st.selectbox("Para começar, selecione seu nome na lista:", pacientes_opts)
+
+    # Se um cliente foi selecionado (e não é a opção default)
+    if "Selecione" not in cliente_selecionado:
+        cliente_id = int(cliente_selecionado.split(" - ")[0])
+
+        # --- 1. Exibir Dados Cadastrais ---
+        st.subheader("Meus Dados Cadastrais")
+        dados_cliente, desc_cliente = db_manager.fetch_query(cadastros_queries.CONSULTAR_DADOS_CLIENTE, (cliente_id,))
+        
+        if dados_cliente:
+            cliente_info = pd.DataFrame(dados_cliente, columns=[d[0] for d in desc_cliente]).iloc[0]
+            col1, col2 = st.columns(2)
+            col1.text_input("Nome", value=cliente_info['nome'], disabled=True)
+            col1.text_input("Email", value=cliente_info['email'], disabled=True)
+            col2.text_input("CPF", value=cliente_info['cpf'], disabled=True)
+            col2.text_input("Telefone", value=cliente_info['telefone'], disabled=True)
+
+            # --- Lógica para exibir status de desconto ---
+            st.write("") # Adiciona um espaço
+            
+            tem_desconto = cliente_info['torce_flamengo'] or cliente_info['assiste_one_piece'] or cliente_info['nasceu_sousa']
+            
+            if tem_desconto:
+                st.success("🎉 **Status:** Você tem direito a 10% de desconto em suas compras!")
+                
+                # Lista os motivos do desconto
+                razoes = []
+                if cliente_info['torce_flamengo']:
+                    razoes.append("torcer para o Flamengo")
+                if cliente_info['assiste_one_piece']:
+                    razoes.append("assistir One Piece")
+                if cliente_info['nasceu_sousa']:
+                    razoes.append("ser de Sousa-PB")
+                
+                st.markdown(f"**Motivo(s):** {', '.join(razoes).capitalize()}.")
+            else:
+                st.info("**Status:** Você ainda não possui descontos especiais ativos.")
+        
+        st.divider()
+
+        # --- 2. Exibir Histórico de Pedidos ---
+        st.subheader("Meus Pedidos")
+        pedidos_cliente, desc_pedidos = db_manager.fetch_query(cadastros_queries.CONSULTAR_PEDIDOS_CLIENTE, (cliente_id,))
+        
+        if not pedidos_cliente:
+            st.info("Você ainda não realizou nenhum pedido.")
+        else:
+            df_pedidos = pd.DataFrame(pedidos_cliente, columns=[d[0] for d in desc_pedidos])
+            
+            # Mostra os pedidos de forma interativa com expanders
+            for index, row in df_pedidos.iterrows():
+                data_formatada = row['data'].strftime('%d/%m/%Y às %H:%M')
+                expander_title = f"Pedido #{row['venda_id']}  -  {data_formatada}  -  Valor: R$ {row['total_liquido']:.2f}"
+                
+                with st.expander(expander_title):
+                    st.write(f"**Forma de Pagamento:** {row['forma_pagamento']}")
+                    st.write(f"**Status:** {row['status_pagamento']}")
+                    
+                    # Busca os itens detalhados do pedido
+                    itens_pedido, desc_itens = db_manager.fetch_query(vendas_queries.DETALHAR_ITENS_PEDIDO_CLIENTE, (row['venda_id'],))
+                    if itens_pedido:
+                        df_itens = pd.DataFrame(itens_pedido, columns=[d[0] for d in desc_itens])
+                        st.dataframe(df_itens, use_container_width=True)
+
 # --- NAVEGAÇÃO PRINCIPAL (SIDEBAR) ---
 def main():
     st.sidebar.image("image_0b8972.jpg", use_container_width=True)
     
-    paginas = {
-        "Cadastros": pagina_cadastros,
-        "Clínico": pagina_clinico,
-        "Financeiro": pagina_financeiro,
-        "Vendas": pagina_vendas,
-    }
+    # Seletor de Modo de Acesso (Funcionário ou Cliente)
+    st.sidebar.header("Modo de Acesso")
+    access_mode = st.sidebar.radio("Selecione o modo de visualização:", ["Funcionário", "Cliente"])
     
-    st.sidebar.divider()
-    selecao = st.sidebar.radio("Navegue pelos Módulos", list(paginas.keys()))
+    if access_mode == "Funcionário":
+        # Mantém a navegação completa para funcionários
+        paginas = {
+            "Cadastros": pagina_cadastros,
+            "Clínico": pagina_clinico,
+            "Financeiro": pagina_financeiro,
+            "Vendas": pagina_vendas,
+        }
+        st.sidebar.divider()
+        selecao = st.sidebar.radio("Navegue pelos Módulos", list(paginas.keys()))
+        
+        pagina_selecionada_func = paginas[selecao]
+        pagina_selecionada_func()
+
+    else: # Se o modo for "Cliente"
+        # Chama a nova página exclusiva para clientes
+        pagina_cliente()
+
     st.sidebar.divider()
     st.sidebar.info("Projeto de Banco de Dados\n\nDesenvolvido com Python, Streamlit e PostgreSQL.")
-    
-    pagina_selecionada_func = paginas[selecao]
-    pagina_selecionada_func()
 
 # --- PONTO DE ENTRADA DA APLICAÇÃO ---
 if __name__ == "__main__":
