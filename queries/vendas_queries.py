@@ -37,3 +37,6 @@ DETALHAR_ITENS_PEDIDO_CLIENTE = "" \
 
 REMOVER_PRODUTO = "UPDATE vendas.produtos SET ativo = FALSE WHERE id = %s;"
 
+CONSULTAR_ESTOQUE_PRODUTO = "SELECT quantidade FROM vendas.estoque WHERE produto_id = %s;"
+
+

@@ -87,11 +87,18 @@ def pagina_cadastros():
                     sigla_estado = st.text_input("UF", max_chars=2)
                     cep = st.text_input("CEP")
 
+                st.markdown("---")
+                st.write("**Critérios para Desconto:**")
+                torce_flamengo = st.checkbox("Torce para o Flamengo")
+                assiste_one_piece = st.checkbox("Assiste One Piece")
+                nasceu_sousa = st.checkbox("Nasceu em Sousa-PB")
+
                 if st.form_submit_button("Salvar Paciente"):
                     if not nome:
                         st.warning("O campo 'Nome' é obrigatório.")
                     else:
-                        dados = (nome, sexo, email, cpf, telefone, logradouro, numero, complemento, bairro, cidade, sigla_estado, cep)
+                        # A query INSERIR_PACIENTE já está correta em cadastros_queries.py
+                        dados = (nome, sexo, email, cpf, telefone, logradouro, numero, complemento, bairro, cidade, sigla_estado, cep, torce_flamengo, assiste_one_piece, nasceu_sousa)
                         resultado = db_manager.execute_and_fetch_one(cadastros_queries.INSERIR_PACIENTE, dados)
                         if resultado:
                             st.success(f"Paciente '{nome}' cadastrado com o ID {resultado[0]}")
@@ -111,7 +118,7 @@ def pagina_cadastros():
             st.dataframe(df_pacientes, use_container_width=True)
 
             st.markdown("---")
-            col_alt, col_rem = st.columns(2)
+            col_alt, col_rem, col_desc = st.columns(3)
             with col_alt:
                 st.subheader("Alterar Telefone")
                 id_alt_pac = st.number_input("ID do Paciente", min_value=1, step=1, key="id_alt_pac")
@@ -144,6 +151,28 @@ def pagina_cadastros():
                         if st.button("Cancelar"):
                             st.session_state.confirm_delete = {'type': None, 'id': None}
                             st.rerun()
+            with col_desc:
+                st.subheader("Alterar Critérios de Desconto")
+                _, pacientes_opts_desc = carregar_dados_para_selectbox(cadastros_queries.LISTAR_TODOS_PACIENTES)
+                
+                # Usamos uma chave única para este selectbox para não conflitar com outros
+                paciente_sel_desc = st.selectbox("Selecione o Paciente", pacientes_opts_desc, key="sel_pac_desc")
+
+                if "Nenhum" not in paciente_sel_desc:
+                    pac_id_desc = int(paciente_sel_desc.split(" - ")[0])
+                    # Busca os dados atuais do paciente
+                    dados_pac_desc, _ = db_manager.fetch_query("SELECT torce_flamengo, assiste_one_piece, nasceu_sousa FROM cadastros.pacientes WHERE id=%s", (pac_id_desc,))
+
+                    if dados_pac_desc:
+                        torce_flamengo_atual = st.checkbox("Torce para o Flamengo", value=dados_pac_desc[0][0], key="flamengo_edit")
+                        assiste_one_piece_atual = st.checkbox("Assiste One Piece", value=dados_pac_desc[0][1], key="op_edit")
+                        nasceu_sousa_atual = st.checkbox("Nasceu em Sousa-PB", value=dados_pac_desc[0][2], key="sousa_edit")
+                        
+                        if st.button("Salvar Critérios de Desconto"):
+                            dados_update = (torce_flamengo_atual, assiste_one_piece_atual, nasceu_sousa_atual, pac_id_desc)
+                            if db_manager.execute_query(cadastros_queries.ATUALIZAR_CRITERIOS_DESCONTO_PACIENTE, dados_update):
+                                st.success("Critérios de desconto atualizados com sucesso!")
+                                st.rerun()
         else:
             st.info("Nenhum paciente encontrado.")
 
@@ -812,35 +841,90 @@ def pagina_vendas():
 
     with tab_venda:
         st.subheader("Nova Venda")
+
+        # --- NOVO BLOCO: EXPANDER PARA CADASTRO RÁPIDO ---
+        with st.expander("👤 Cadastrar Novo Cliente (Rápido)"):
+            with st.form("novo_cliente_rapido_form", clear_on_submit=True):
+                st.info("Cadastre apenas o essencial. Detalhes podem ser adicionados depois no módulo de Cadastros.")
+                novo_nome_cliente = st.text_input("Nome Completo*")
+                novo_tel_cliente = st.text_input("Telefone")
+                
+                if st.form_submit_button("Salvar e Selecionar Cliente"):
+                    if not novo_nome_cliente:
+                        st.warning("O nome do cliente é obrigatório.")
+                    else:
+                        # Monta a tupla de dados para a query existente, preenchendo com None
+                        dados_cliente_rapido = (
+                            novo_nome_cliente, 'O', None, None, novo_tel_cliente,  # Info básica
+                            None, None, None, None, None, None, None,             # Endereço
+                            False, False, False                                  # Critérios de desconto
+                        )
+                        resultado = db_manager.execute_and_fetch_one(cadastros_queries.INSERIR_PACIENTE, dados_cliente_rapido)
+                        if resultado:
+                            novo_cliente_id = resultado[0]
+                            st.success(f"Cliente '{novo_nome_cliente}' cadastrado com ID {novo_cliente_id}!")
+                            # Usa o session_state para "lembrar" do ID do novo cliente para o selectbox principal
+                            st.session_state.cliente_selecionado_id = novo_cliente_id
+                            st.rerun()
+                        else:
+                            st.error("Erro ao cadastrar cliente.")
+
+        # --- LÓGICA PRINCIPAL DA VENDA ---
         
-        _, clientes_opts = carregar_dados_para_selectbox(cadastros_queries.LISTAR_TODOS_PACIENTES)
-        _, vendedores_opts = carregar_dados_para_selectbox(cadastros_queries.LISTAR_TODOS_FUNCIONARIOS)
+        # Carrega os dados para os dropdowns
+        clientes_map, clientes_opts = carregar_dados_para_selectbox(cadastros_queries.LISTAR_TODOS_PACIENTES)
+        _, vendedores_opts = carregar_dados_para_selectbox(cadastros_queries.LISTAR_VENDEDORES)
         _, produtos_opts = carregar_dados_para_selectbox("SELECT id, nome FROM vendas.produtos WHERE ativo=TRUE ORDER BY nome;")
         
-        cliente_sel = st.selectbox("Cliente*", clientes_opts)
+        # --- LÓGICA PARA AUTO-SELECIONAR O NOVO CLIENTE ---
+        index_cliente = 0
+        if 'cliente_selecionado_id' in st.session_state and st.session_state.cliente_selecionado_id is not None:
+            try:
+                # Encontra a string correspondente ao ID salvo na lista de opções
+                opcao_alvo = next(opt for opt in clientes_opts if opt.startswith(f"{st.session_state.cliente_selecionado_id} -"))
+                index_cliente = clientes_opts.index(opcao_alvo)
+            except (StopIteration, ValueError):
+                index_cliente = 0 # Se não encontrar, volta ao padrão
+            # Limpa o session_state após o uso
+            st.session_state.cliente_selecionado_id = None
+
+        cliente_sel = st.selectbox("Cliente*", clientes_opts, index=index_cliente)
         vendedor_sel = st.selectbox("Vendedor*", vendedores_opts)
         
         st.markdown("---")
         st.subheader("Carrinho de Compras")
-        
+
         prod_sel = st.selectbox("Adicionar Produto", produtos_opts)
-        qtd_sel = st.number_input("Quantidade", min_value=1, value=1, step=1)
-        
-        if st.button("Adicionar ao Carrinho"):
-            if "Nenhum" in prod_sel:
-                st.warning("Selecione um produto válido.")
-            else:
-                prod_id = int(prod_sel.split(" - ")[0])
-                prod_nome = prod_sel.split(" - ")[1]
-                preco_unit, _ = db_manager.fetch_query("SELECT preco FROM vendas.produtos WHERE id = %s", (prod_id,))
-                
-                st.session_state.carrinho.append({
-                    "produto_id": prod_id, "nome": prod_nome, "quantidade": qtd_sel,
-                    "preco_unitario": float(preco_unit[0][0])
-                })
+
+        # --- LÓGICA DE VERIFICAÇÃO DE ESTOQUE PROATIVA ---
+        estoque_disponivel = 0
+        if "Nenhum" not in prod_sel:
+            prod_id = int(prod_sel.split(" - ")[0])
+            estoque_res, _ = db_manager.fetch_query(vendas_queries.CONSULTAR_ESTOQUE_PRODUTO, (prod_id,))
+            if estoque_res:
+                estoque_disponivel = estoque_res[0][0]
+
+        # Exibe o estoque e limita o campo de quantidade
+        st.caption(f"Estoque disponível: {estoque_disponivel} unidades")
+        if estoque_disponivel > 0:
+            qtd_sel = st.number_input("Quantidade", min_value=1, max_value=estoque_disponivel, value=1, step=1)
+        else:
+            st.warning("Este produto está sem estoque.")
+        # --- FIM DA LÓGICA DE VERIFICAÇÃO ---
+
+        if estoque_disponivel > 0 and st.button("Adicionar ao Carrinho"):
+            # A lógica interna para adicionar ao carrinho não muda
+            prod_nome = prod_sel.split(" - ")[1]
+            preco_unit, _ = db_manager.fetch_query("SELECT preco FROM vendas.produtos WHERE id = %s", (prod_id,))
+            
+            st.session_state.carrinho.append({
+                "produto_id": prod_id, "nome": prod_nome, "quantidade": qtd_sel,
+                "preco_unitario": float(preco_unit[0][0])
+            })
+            st.rerun()
         
         if st.session_state.carrinho:
-            st.dataframe(pd.DataFrame(st.session_state.carrinho))
+            st.dataframe(pd.DataFrame(st.session_state.carrinho), use_container_width=True)
             total_carrinho = sum(item['quantidade'] * item['preco_unitario'] for item in st.session_state.carrinho)
             st.metric("Total Bruto", f"R$ {total_carrinho:.2f}")
 
@@ -848,8 +932,29 @@ def pagina_vendas():
                 st.session_state.carrinho = []; st.rerun()
 
             st.markdown("---"); st.subheader("Finalizar Venda")
+
+            # --- LÓGICA DE EXIBIÇÃO DO DESCONTO ---
+            desconto_aplicado = 0.0
+            total_liquido = total_carrinho
+
+            if "Nenhum" not in cliente_sel:
+                cliente_id = int(cliente_sel.split(" - ")[0])
+                # Verifica se o cliente tem desconto usando a nova query
+                resultado_desconto, _ = db_manager.fetch_query(cadastros_queries.VERIFICAR_DESCONTO_CLIENTE, (cliente_id,))
+                
+                if resultado_desconto and resultado_desconto[0][0] is True:
+                    desconto_aplicado = total_carrinho * 0.10
+                    total_liquido = total_carrinho - desconto_aplicado
+                    st.success("🎉 Desconto de 10% aplicado para este cliente!")
+
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Bruto", f"R$ {total_carrinho:.2f}")
+            col2.metric("Desconto", f"R$ {desconto_aplicado:.2f}")
+            col3.metric("✅ Total Líquido", f"R$ {total_liquido:.2f}")
+            # --- FIM DA LÓGICA DE EXIBIÇÃO DO DESCONTO ---
+
             forma_pag = st.selectbox("Forma de Pagamento", ['Dinheiro','Cartão','Boleto','PIX','Berries'])
-            
+
             if st.button("Efetivar Compra", type="primary"):
                 if "Nenhum" in cliente_sel or "Nenhum" in vendedor_sel:
                     st.error("Cliente e Vendedor são obrigatórios.")
@@ -857,12 +962,27 @@ def pagina_vendas():
                     cliente_id = int(cliente_sel.split(" - ")[0]); vendedor_id = int(vendedor_sel.split(" - ")[0])
                     status_pag = "Confirmado" if forma_pag in ['Dinheiro', 'Cartão', 'PIX'] else "Pendente"
                     itens_json = json.dumps(st.session_state.carrinho)
+                    
                     try:
                         res = db_manager.execute_and_fetch_one(vendas_queries.CHAMAR_EFETIVAR_COMPRA, (cliente_id, vendedor_id, forma_pag, itens_json, status_pag))
                         if res and res[0] > 0:
                             st.success(f"Venda finalizada com sucesso! ID da Venda: {res[0]}"); st.balloons(); st.session_state.carrinho = []
-                        else: st.error("Falha ao efetivar a compra.")
-                    except Exception as e: st.error(f"Ocorreu um erro: {e}")
+                        else: 
+                            # Este else é para casos onde a função do DB não retorna um ID, mas não gera exceção
+                            st.error("Falha ao efetivar a compra. A venda não foi registrada.")
+
+                    except Exception as e:
+                        # Converte a exceção em texto para análise
+                        error_message = str(e)
+                        
+                        # Verifica se a mensagem de erro é a de estoque insuficiente
+                        if "sem estoque suficiente" in error_message:
+                            # Extrai a parte útil da mensagem para exibir ao usuário
+                            friendly_error = error_message.split('CONTEXT:')[0].replace('ERRO:', '').strip()
+                            st.error(f"⚠️ Venda não realizada! {friendly_error}")
+                        else:
+                            # Para todos os outros tipos de erro, exibe uma mensagem mais genérica
+                            st.error(f"Ocorreu um erro inesperado ao efetivar a compra: {error_message}")
 
     with tab_relatorios:
         st.subheader("Relatório de Vendas Mensal por Vendedor")
