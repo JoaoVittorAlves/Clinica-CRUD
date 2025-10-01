@@ -191,6 +191,74 @@ CREATE TABLE vendas.itens_venda (
     preco_unitario NUMERIC(12,2) NOT NULL CHECK (preco_unitario >= 0)
 );
 
+
+-- ==========================================
+-- RESTRIÇÕES DE INTEGRIDADE REFERENCIAL
+-- ==========================================
+-- Vendas
+ALTER TABLE vendas.vendas
+ADD CONSTRAINT fk_vendas_cliente FOREIGN KEY (cliente_id)
+REFERENCES cadastros.pacientes(id)
+ON DELETE RESTRICT;
+
+ALTER TABLE vendas.vendas
+ADD CONSTRAINT fk_vendas_vendedor FOREIGN KEY (vendedor_id)
+REFERENCES cadastros.funcionarios(id)
+ON DELETE RESTRICT;
+
+-- Itens da Venda
+ALTER TABLE vendas.itens_venda
+ADD CONSTRAINT fk_itens_venda_produto FOREIGN KEY (produto_id)
+REFERENCES vendas.produtos(id)
+ON DELETE RESTRICT;
+
+ALTER TABLE vendas.itens_venda
+ADD CONSTRAINT fk_itens_venda_venda FOREIGN KEY (venda_id)
+REFERENCES vendas.vendas(id)
+ON DELETE CASCADE;
+
+-- Estoque
+ALTER TABLE vendas.estoque
+ADD CONSTRAINT fk_estoque_produto FOREIGN KEY (produto_id)
+REFERENCES vendas.produtos(id)
+ON DELETE CASCADE;
+
+-- Consultas
+ALTER TABLE clinico.consultas
+ADD CONSTRAINT fk_consultas_paciente FOREIGN KEY (paciente_id)
+REFERENCES cadastros.pacientes(id)
+ON DELETE CASCADE;
+
+ALTER TABLE clinico.consultas
+ADD CONSTRAINT fk_consultas_medico FOREIGN KEY (medico_id)
+REFERENCES cadastros.medicos(id)
+ON DELETE RESTRICT;
+
+ALTER TABLE clinico.consultas
+ADD CONSTRAINT fk_consultas_funcionario FOREIGN KEY (funcionario_id)
+REFERENCES cadastros.funcionarios(id)
+ON DELETE SET NULL;
+
+-- Receitas
+ALTER TABLE clinico.receitas
+ADD CONSTRAINT fk_receitas_consulta FOREIGN KEY (consulta_id)
+REFERENCES clinico.consultas(id)
+ON DELETE CASCADE;
+
+-- Pagamentos
+ALTER TABLE financeiro.pagamentos
+ADD CONSTRAINT fk_pagamentos_consulta FOREIGN KEY (consulta_id)
+REFERENCES clinico.consultas(id)
+ON DELETE RESTRICT;
+
+-- Produtos e Categorias
+ALTER TABLE vendas.produtos
+ADD CONSTRAINT fk_produtos_categoria FOREIGN KEY (categoria_id)
+REFERENCES vendas.categorias(id)
+ON DELETE SET NULL;
+
+
+
 -- === INSERÇÃO DE PRODUTOS DE EXEMPLO ===
 INSERT INTO vendas.produtos (nome, preco, categoria_id) VALUES
 ('Produto Exemplo 1', 50.00, NULL),
