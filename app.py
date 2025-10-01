@@ -4,6 +4,7 @@ from db_manager import DatabaseManager
 from queries import cadastros_queries, clinico_queries, financeiro_queries, vendas_queries
 from datetime import datetime
 import json
+import altair as alt
 
 st.set_page_config(page_title="Gestão da Clínica", layout="wide")
 
@@ -1034,8 +1035,8 @@ def pagina_vendas():
 
                 # --- 3. GRÁFICOS ---
                 st.subheader("Análise Gráfica")
-                
-                # Agrupa os dados por vendedor para os gráficos
+
+                # Agrupa os dados por vendedor, mas desta vez MANTEMOS o reset_index()
                 df_grafico = df_filtrado.groupby('vendedor').agg(
                     valor_total_vendido=('valor_total_vendido', 'sum'),
                     ticket_medio=('ticket_medio', 'mean')
@@ -1044,13 +1045,23 @@ def pagina_vendas():
                 col_graf1, col_graf2 = st.columns(2)
                 with col_graf1:
                     st.write("Valor Total Vendido por Vendedor")
-                    st.bar_chart(df_grafico, x='vendedor', y='valor_total_vendido', use_container_width=True)
-                
+                    # Cria o gráfico usando Altair, dando instruções explícitas
+                    chart_valor = alt.Chart(df_grafico).mark_bar().encode(
+                        x=alt.X('vendedor', type='nominal', title='Vendedor', sort='-y'),
+                        y=alt.Y('valor_total_vendido', type='quantitative', title='Valor Total Vendido (R$)'),
+                        tooltip=['vendedor', 'valor_total_vendido']
+                    ).interactive()
+                    st.altair_chart(chart_valor, use_container_width=True)
+
                 with col_graf2:
                     st.write("Ticket Médio por Vendedor")
-                    st.bar_chart(df_grafico, x='vendedor', y='ticket_medio', use_container_width=True)
-
-                st.divider()
+                    # Cria o segundo gráfico com Altair
+                    chart_ticket = alt.Chart(df_grafico).mark_bar().encode(
+                        x=alt.X('vendedor', type='nominal', title='Vendedor', sort='-y'),
+                        y=alt.Y('ticket_medio', type='quantitative', title='Ticket Médio (R$)'),
+                        tooltip=['vendedor', 'ticket_medio']
+                    ).interactive()
+                    st.altair_chart(chart_ticket, use_container_width=True)
 
                 # --- 4. DADOS DETALHADOS ---
                 st.subheader("Dados Detalhados")
