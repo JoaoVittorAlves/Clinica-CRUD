@@ -193,6 +193,53 @@ CREATE TABLE vendas.itens_venda (
 
 
 -- ==========================================
+-- CRIAÇÃO DE ÍNDICES PARA MELHORAR PERFORMANCE
+-- ==========================================
+
+-- Tabela vendas.vendas
+CREATE INDEX idx_vendas_cliente ON vendas.vendas(cliente_id);
+CREATE INDEX idx_vendas_vendedor ON vendas.vendas(vendedor_id);
+CREATE INDEX idx_vendas_data ON vendas.vendas(data);
+
+-- Tabela vendas.itens_venda
+CREATE INDEX idx_itens_venda_venda ON vendas.itens_venda(venda_id);
+CREATE INDEX idx_itens_venda_produto ON vendas.itens_venda(produto_id);
+
+-- Tabela vendas.estoque
+CREATE INDEX idx_estoque_produto ON vendas.estoque(produto_id);
+
+-- Tabela cadastros.pacientes
+CREATE INDEX idx_pacientes_cpf ON cadastros.pacientes(cpf);
+CREATE INDEX idx_pacientes_email ON cadastros.pacientes(email);
+
+-- Tabela cadastros.funcionarios
+CREATE INDEX idx_funcionarios_email ON cadastros.funcionarios(email);
+CREATE INDEX idx_funcionarios_telefone ON cadastros.funcionarios(telefone);
+
+-- Tabela cadastros.medicos
+CREATE INDEX idx_medicos_crm ON cadastros.medicos(crm);
+CREATE INDEX idx_medicos_email ON cadastros.medicos(email);
+
+-- Tabela vendas.produtos
+CREATE INDEX idx_produtos_nome ON vendas.produtos(nome);
+CREATE INDEX idx_produtos_categoria ON vendas.produtos(categoria_id);
+
+-- Tabela clinico.consultas
+CREATE INDEX idx_consultas_paciente ON clinico.consultas(paciente_id);
+CREATE INDEX idx_consultas_medico ON clinico.consultas(medico_id);
+CREATE INDEX idx_consultas_funcionario ON clinico.consultas(funcionario_id);
+CREATE INDEX idx_consultas_data ON clinico.consultas(data);
+
+-- Tabela clinico.receitas
+CREATE INDEX idx_receitas_consulta ON clinico.receitas(consulta_id);
+
+-- Tabela financeiro.pagamentos
+CREATE INDEX idx_pagamentos_consulta ON financeiro.pagamentos(consulta_id);
+CREATE INDEX idx_pagamentos_data ON financeiro.pagamentos(data_pagamento);
+
+
+
+-- ==========================================
 -- RESTRIÇÕES DE INTEGRIDADE REFERENCIAL
 -- ==========================================
 -- Vendas
