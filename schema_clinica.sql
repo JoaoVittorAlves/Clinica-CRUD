@@ -461,10 +461,15 @@ BEGIN
     SELECT nova_venda_id, produto_id, quantidade, preco_unitario FROM itens_carrinho;
 
     -- 8. ATUALIZA O ESTOQUE de todos os produtos de uma só vez.
-    UPDATE vendas.estoque
-    SET quantidade = estoque.quantidade - carrinho.quantidade
-    FROM itens_carrinho carrinho
-    WHERE estoque.produto_id = carrinho.produto_id;
+    UPDATE vendas.estoque AS e
+    SET quantidade = e.quantidade - c.quantidade
+    FROM itens_carrinho AS c
+    WHERE e.produto_id = c.produto_id;
+
+    -- checar se todas as linhas foram atualizadas (número de linhas afetadas deve ser igual ao número de itens)
+    IF (SELECT COUNT(*) FROM itens_carrinho) <> (SELECT COUNT(*) FROM vendas.estoque e2 JOIN itens_carrinho c2 ON e2.produto_id = c2.produto_id) THEN
+        RAISE EXCEPTION 'Falha ao atualizar estoque para todos os itens da venda.';
+    END IF;
 
     -- 9. Retorna o ID da nova venda.
     RETURN nova_venda_id;

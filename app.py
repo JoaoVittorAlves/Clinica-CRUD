@@ -966,7 +966,10 @@ def pagina_vendas():
                     try:
                         res = db_manager.execute_and_fetch_one(vendas_queries.CHAMAR_EFETIVAR_COMPRA, (cliente_id, vendedor_id, forma_pag, itens_json, status_pag))
                         if res and res[0] > 0:
-                            st.success(f"Venda finalizada com sucesso! ID da Venda: {res[0]}"); st.balloons(); st.session_state.carrinho = []
+                            st.success(f"Venda finalizada com sucesso! ID da Venda: {res[0]}")
+                            st.balloons()
+                            st.session_state.carrinho = []
+                            st.rerun()
                         else: 
                             # Este else é para casos onde a função do DB não retorna um ID, mas não gera exceção
                             st.error("Falha ao efetivar a compra. A venda não foi registrada.")
