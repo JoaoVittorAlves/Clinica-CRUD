@@ -1,14 +1,16 @@
 import streamlit as st
 import pandas as pd
 from db_manager import DatabaseManager
-from queries import cadastros_queries, clinico_queries, financeiro_queries
+from queries import cadastros_queries, clinico_queries, financeiro_queries, vendas_queries
 from datetime import datetime
+import json
 
 st.set_page_config(page_title="Gestão da Clínica", layout="wide")
 
 if 'confirm_delete' not in st.session_state:
     st.session_state.confirm_delete = {'type': None, 'id': None}
-
+if 'carrinho' not in st.session_state:
+    st.session_state.carrinho = []
 
 # --- FUNÇÕES AUXILIARES E CONEXÃO COM O BANCO ---
 
@@ -37,9 +39,8 @@ def safe_remover(id_remocao, remover_query, check_query, tipo_registo):
     dependentes, _ = db_manager.fetch_query(check_query, (id_remocao,))
     
     if dependentes and dependentes[0][0] > 0:
-        st.error(f"Não é possível remover este(a) {tipo_registo}. Existem {dependentes[0][0]} registos que dependem dele(a).")
+        st.error(f"Não é possível remover. Existem {dependentes[0][0]} registos que dependem dele(a).")
         return False
-    
     if db_manager.execute_query(remover_query, (id_remocao,)):
         st.success(f"{tipo_registo.capitalize()} ID {id_remocao} removido com sucesso!")
         return True
@@ -55,7 +56,6 @@ def carregar_dados_para_selectbox(query, id_col_index=0, nome_col_index=1):
     mapeamento = {item[id_col_index]: item[nome_col_index] for item in dados}
     opcoes = [f"{id} - {nome}" for id, nome in mapeamento.items()]
     return mapeamento, opcoes
-
 
 # --- PÁGINA DE CADASTROS ---
 def pagina_cadastros():
@@ -593,6 +593,158 @@ def pagina_financeiro():
         else:
             st.info("Não há pagamentos pendentes.")
 
+# --- PÁGINA DE VENDAS ---
+def pagina_vendas():
+    st.header("Módulo de Vendas")
+
+    tab_produtos, tab_venda, tab_relatorios = st.tabs(["Produtos e Estoque", "Realizar Venda", "Relatórios de Vendas"])
+
+    with tab_produtos:
+        st.subheader("Gerenciamento de Produtos")
+        
+        col_cad_prod, col_cad_cat = st.columns(2)
+        with col_cad_prod:
+            with st.expander("➕ Cadastrar Novo Produto"):
+                with st.form("novo_produto_form", clear_on_submit=True):
+                    nome_prod = st.text_input("Nome do Produto*")
+                    desc_prod = st.text_area("Descrição")
+                    preco_prod = st.number_input("Preço (R$)", min_value=0.01, format="%.2f")
+                    qtd_inicial = st.number_input("Quantidade em Estoque*", min_value=0, step=1)
+                    
+                    _, cat_opts = carregar_dados_para_selectbox(vendas_queries.LISTAR_CATEGORIAS)
+                    cat_selecionada = st.selectbox("Categoria", cat_opts)
+                    
+                    fab_mari = st.checkbox("Fabricado em Mari?")
+                    
+                    if st.form_submit_button("Salvar Produto"):
+                        if not nome_prod or "Nenhum" in cat_selecionada:
+                            st.warning("Nome e Categoria são obrigatórios.")
+                        else:
+                            cat_id = int(cat_selecionada.split(" - ")[0])
+                            res = db_manager.execute_and_fetch_one(vendas_queries.INSERIR_PRODUTO, (nome_prod, desc_prod, preco_prod, cat_id, fab_mari, True))
+                            
+                            if res:
+                                novo_produto_id = res[0]
+                                if db_manager.execute_query(vendas_queries.ATUALIZAR_ESTOQUE, (novo_produto_id, qtd_inicial)):
+                                    st.success(f"Produto '{nome_prod}' salvo com ID {novo_produto_id} e estoque inicial de {qtd_inicial} unidades.")
+                                else:
+                                    st.warning(f"Produto '{nome_prod}' salvo com ID {novo_produto_id}, mas falha ao atualizar o estoque.")
+                            else:
+                                st.error("Erro ao salvar produto.")
+        with col_cad_cat:
+            with st.expander("➕ Cadastrar Nova Categoria"):
+                with st.form("nova_cat_form", clear_on_submit=True):
+                    nome_cat = st.text_input("Nome da Categoria*")
+                    if st.form_submit_button("Salvar Categoria"):
+                        if not nome_cat:
+                            st.warning("Nome é obrigatório.")
+                        else:
+                            res = db_manager.execute_and_fetch_one(vendas_queries.INSERIR_CATEGORIA, (nome_cat,))
+                            if res: st.success(f"Categoria '{nome_cat}' salva com ID {res[0]}.")
+                            else: st.error("Erro ao salvar. Nome pode já existir.")
+
+        st.markdown("---")
+
+        # --- BLOCO PARA EXIBIR A TABELA DE ESTOQUE ---
+        st.subheader("Estoque de Produtos")
+        estoque, desc_est = db_manager.fetch_query(vendas_queries.LISTAR_TODOS_PRODUTOS)
+        if estoque:
+            df_est = pd.DataFrame(estoque, columns=[d[0] for d in desc_est])
+            st.dataframe(df_est, use_container_width=True)
+
+        # --- BLOCO PARA ATUALIZAR O ESTOQUE MANUALMENTE ---
+        st.markdown("---")
+        st.subheader("⚙️ Atualizar Estoque Manualmente")
+
+        _, produtos_opts_update = carregar_dados_para_selectbox("SELECT id, nome FROM vendas.produtos WHERE ativo=TRUE ORDER BY nome;")
+
+        if "Nenhum" in produtos_opts_update[0]:
+            st.info("Nenhum produto cadastrado para atualizar.")
+        else:
+            col_prod_select, col_qtd_update, col_btn_update = st.columns([2, 1, 1])
+            
+            with col_prod_select:
+                produto_selecionado_update = st.selectbox("Selecione o Produto", produtos_opts_update, key="prod_update_select")
+            
+            with col_qtd_update:
+                nova_quantidade = st.number_input("Nova Quantidade", min_value=0, step=1, key="prod_update_qtd")
+            
+            with col_btn_update:
+                st.write("") 
+                st.write("")
+                if st.button("Atualizar Estoque"):
+                    if "Nenhum" in produto_selecionado_update:
+                        st.warning("Por favor, selecione um produto.")
+                    else:
+                        produto_id_update = int(produto_selecionado_update.split(" - ")[0])
+                        
+                        if db_manager.execute_query(vendas_queries.ATUALIZAR_ESTOQUE, (produto_id_update, nova_quantidade)):
+                            st.success(f"Estoque do produto ID {produto_id_update} atualizado para {nova_quantidade} unidades!")
+                            st.rerun()
+                        else:
+                            st.error("Falha ao atualizar o estoque.")
+
+    with tab_venda:
+        st.subheader("Nova Venda")
+        
+        _, clientes_opts = carregar_dados_para_selectbox(cadastros_queries.LISTAR_TODOS_PACIENTES)
+        _, vendedores_opts = carregar_dados_para_selectbox(cadastros_queries.LISTAR_TODOS_FUNCIONARIOS)
+        _, produtos_opts = carregar_dados_para_selectbox("SELECT id, nome FROM vendas.produtos WHERE ativo=TRUE ORDER BY nome;")
+        
+        cliente_sel = st.selectbox("Cliente*", clientes_opts)
+        vendedor_sel = st.selectbox("Vendedor*", vendedores_opts)
+        
+        st.markdown("---")
+        st.subheader("Carrinho de Compras")
+        
+        prod_sel = st.selectbox("Adicionar Produto", produtos_opts)
+        qtd_sel = st.number_input("Quantidade", min_value=1, value=1, step=1)
+        
+        if st.button("Adicionar ao Carrinho"):
+            if "Nenhum" in prod_sel:
+                st.warning("Selecione um produto válido.")
+            else:
+                prod_id = int(prod_sel.split(" - ")[0])
+                prod_nome = prod_sel.split(" - ")[1]
+                preco_unit, _ = db_manager.fetch_query("SELECT preco FROM vendas.produtos WHERE id = %s", (prod_id,))
+                
+                st.session_state.carrinho.append({
+                    "produto_id": prod_id, "nome": prod_nome, "quantidade": qtd_sel,
+                    "preco_unitario": float(preco_unit[0][0])
+                })
+        
+        if st.session_state.carrinho:
+            st.dataframe(pd.DataFrame(st.session_state.carrinho))
+            total_carrinho = sum(item['quantidade'] * item['preco_unitario'] for item in st.session_state.carrinho)
+            st.metric("Total Bruto", f"R$ {total_carrinho:.2f}")
+
+            if st.button("Limpar Carrinho"):
+                st.session_state.carrinho = []; st.rerun()
+
+            st.markdown("---"); st.subheader("Finalizar Venda")
+            forma_pag = st.selectbox("Forma de Pagamento", ['Dinheiro','Cartão','Boleto','PIX','Berries'])
+            
+            if st.button("Efetivar Compra", type="primary"):
+                if "Nenhum" in cliente_sel or "Nenhum" in vendedor_sel:
+                    st.error("Cliente e Vendedor são obrigatórios.")
+                else:
+                    cliente_id = int(cliente_sel.split(" - ")[0]); vendedor_id = int(vendedor_sel.split(" - ")[0])
+                    status_pag = "Confirmado" if forma_pag in ['Dinheiro', 'Cartão', 'PIX'] else "Pendente"
+                    itens_json = json.dumps(st.session_state.carrinho)
+                    try:
+                        res = db_manager.execute_and_fetch_one(vendas_queries.CHAMAR_EFETIVAR_COMPRA, (cliente_id, vendedor_id, forma_pag, itens_json, status_pag))
+                        if res and res[0] > 0:
+                            st.success(f"Venda finalizada com sucesso! ID da Venda: {res[0]}"); st.balloons(); st.session_state.carrinho = []
+                        else: st.error("Falha ao efetivar a compra.")
+                    except Exception as e: st.error(f"Ocorreu um erro: {e}")
+
+    with tab_relatorios:
+        st.subheader("Relatório de Vendas Mensal por Vendedor")
+        relatorio, desc_rel = db_manager.fetch_query(vendas_queries.REL_VENDAS_POR_VENDEDOR_MES)
+        if relatorio:
+            df_rel = pd.DataFrame(relatorio, columns=[d[0] for d in desc_rel])
+            st.dataframe(df_rel, use_container_width=True)
+
 # --- NAVEGAÇÃO PRINCIPAL (SIDEBAR) ---
 def main():
     st.sidebar.image("image_0b8972.jpg", use_container_width=True)
@@ -601,14 +753,13 @@ def main():
         "Cadastros": pagina_cadastros,
         "Clínico": pagina_clinico,
         "Financeiro": pagina_financeiro,
+        "Vendas": pagina_vendas,
     }
     
     st.sidebar.divider()
-    
     selecao = st.sidebar.radio("Navegue pelos Módulos", list(paginas.keys()))
-    
     st.sidebar.divider()
-    st.sidebar.info("Projeto de Banco de Dados I\n\nDesenvolvido com Python, Streamlit e PostgreSQL.")
+    st.sidebar.info("Projeto de Banco de Dados\n\nDesenvolvido com Python, Streamlit e PostgreSQL.")
     
     pagina_selecionada_func = paginas[selecao]
     pagina_selecionada_func()
