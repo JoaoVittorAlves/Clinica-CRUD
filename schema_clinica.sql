@@ -151,13 +151,13 @@ CREATE TABLE financeiro.pagamentos (
     data_pagamento TIMESTAMP WITHOUT TIME ZONE
 );
 
--- Tabela de cartegorias (schema: vendas)
+-- Tabela de Categorias (schema: vendas)
 CREATE TABLE vendas.categorias (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(100) NOT NULL UNIQUE
 );
 
--- Produtos (schema: vendas)
+-- Tabela de Produtos (schema: vendas)
 CREATE TABLE vendas.produtos (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(200) NOT NULL,
@@ -168,13 +168,13 @@ CREATE TABLE vendas.produtos (
     ativo BOOLEAN DEFAULT TRUE
 );
 
--- Estoque (separado para permitir controle isolado, schema: vendas)
+-- Tabela de Estoque (separado para permitir controle isolado, schema: vendas)
 CREATE TABLE vendas.estoque (
     produto_id INTEGER PRIMARY KEY REFERENCES vendas.produtos(id) ON DELETE CASCADE,
     quantidade INTEGER NOT NULL CHECK (quantidade >= 0)
 );
 
--- Vendas (schema: vendas)
+-- Tabela de Vendas (schema: vendas)
 CREATE TABLE vendas.vendas (
     id SERIAL PRIMARY KEY,
     cliente_id INTEGER NOT NULL REFERENCES cadastros.pacientes(id) ON DELETE RESTRICT,
@@ -187,7 +187,7 @@ CREATE TABLE vendas.vendas (
     status_pagamento VARCHAR(30) NOT NULL DEFAULT 'Pendente' CHECK (status_pagamento IN ('Pendente','Confirmado','Falhado'))
 );
 
--- Itens da Venda (schema: vendas)
+-- Tabela de Itens da Venda (schema: vendas)
 CREATE TABLE vendas.itens_venda (
     id SERIAL PRIMARY KEY,
     venda_id INTEGER NOT NULL REFERENCES vendas.vendas(id) ON DELETE CASCADE,
@@ -416,3 +416,76 @@ SELECT * FROM vendas.efetivar_compra(
     '[{"produto_id":1,"quantidade":2,"preco_unitario":50.00}]'::jsonb -- itens
 );
 
+-- === 5. VIEWS E STORED PROCEDURES ===
+
+-- View para o relatório mensal de vendas por vendedor
+CREATE OR REPLACE VIEW vendas.vendas_por_vendedor_mes AS
+SELECT
+    date_trunc('month', v.data)::date AS mes,
+    f.nome AS vendedor,
+    COUNT(v.id) AS total_vendas,
+    SUM(v.total_liquido) AS valor_total_vendido
+FROM
+    vendas.vendas v
+JOIN
+    cadastros.funcionarios f ON v.vendedor_id = f.id
+GROUP BY
+    mes, vendedor
+ORDER BY
+    mes DESC, valor_total_vendido DESC;
+
+
+-- Stored Procedure para efetivar uma compra
+CREATE OR REPLACE FUNCTION vendas.efetivar_compra(
+    p_cliente_id INTEGER,
+    p_vendedor_id INTEGER,
+    p_forma_pagamento VARCHAR,
+    p_itens JSONB,
+    p_status_pagamento VARCHAR
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    item RECORD;
+    estoque_atual INTEGER;
+    total_bruto_venda NUMERIC(12,2) := 0;
+    desconto_venda NUMERIC(12,2) := 0;
+    total_liquido_venda NUMERIC(12,2);
+    nova_venda_id INTEGER;
+    cliente_tem_desconto BOOLEAN := FALSE;
+BEGIN
+    SELECT (torce_flamengo OR assiste_one_piece OR nasceu_sousa) INTO cliente_tem_desconto
+    FROM cadastros.pacientes WHERE id = p_cliente_id;
+
+    FOR item IN SELECT * FROM jsonb_to_recordset(p_itens) AS x(produto_id INTEGER, quantidade INTEGER, preco_unitario NUMERIC)
+    LOOP
+        SELECT quantidade INTO estoque_atual FROM vendas.estoque WHERE produto_id = item.produto_id FOR UPDATE;
+        
+        IF estoque_atual IS NULL OR estoque_atual < item.quantidade THEN
+            RAISE EXCEPTION 'Produto ID % sem estoque suficiente. Disponível: %, Solicitado: %', item.produto_id, estoque_atual, item.quantidade;
+        END IF;
+
+        total_bruto_venda := total_bruto_venda + (item.quantidade * item.preco_unitario);
+    END LOOP;
+
+    IF cliente_tem_desconto THEN
+        desconto_venda := total_bruto_venda * 0.10;
+    END IF;
+    total_liquido_venda := total_bruto_venda - desconto_venda;
+
+    INSERT INTO vendas.vendas (cliente_id, vendedor_id, data, total_bruto, desconto_aplicado, total_liquido, forma_pagamento, status_pagamento)
+    VALUES (p_cliente_id, p_vendedor_id, CURRENT_TIMESTAMP, total_bruto_venda, desconto_venda, total_liquido_venda, p_forma_pagamento, p_status_pagamento)
+    RETURNING id INTO nova_venda_id;
+
+    FOR item IN SELECT * FROM jsonb_to_recordset(p_itens) AS x(produto_id INTEGER, quantidade INTEGER, preco_unitario NUMERIC)
+    LOOP
+        INSERT INTO vendas.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
+        VALUES (nova_venda_id, item.produto_id, item.quantidade, item.preco_unitario);
+
+        UPDATE vendas.estoque SET quantidade = quantidade - item.quantidade WHERE produto_id = item.produto_id;
+    END LOOP;
+
+    RETURN nova_venda_id;
+END;
+$$;

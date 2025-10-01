@@ -1,5 +1,3 @@
-# queries/vendas_queries.py
-
 LISTAR_TODOS_PRODUTOS = "SELECT p.id, p.nome, p.descricao, p.preco, c.nome AS categoria, p.fabricado_em_mari, e.quantidade FROM vendas.produtos p LEFT JOIN vendas.categorias c ON p.categoria_id = c.id LEFT JOIN vendas.estoque e ON p.id = e.produto_id WHERE p.ativo = TRUE ORDER BY p.nome;"
 
 BUSCAR_PRODUTOS_POR_NOME = "SELECT p.id, p.nome, p.preco, c.nome AS categoria, e.quantidade FROM vendas.produtos p LEFT JOIN vendas.categorias c ON p.categoria_id = c.id LEFT JOIN vendas.estoque e ON p.id = e.produto_id WHERE lower(p.nome) LIKE lower(%s) AND p.ativo = TRUE ORDER BY p.nome;"
@@ -13,6 +11,16 @@ BUSCAR_PRODUTOS_FAB_MARI = "SELECT p.id, p.nome, p.preco, e.quantidade FROM vend
 BUSCAR_PRODUTOS_ESTOQUE_BAIXO = "SELECT p.id, p.nome, p.preco, e.quantidade FROM vendas.produtos p JOIN vendas.estoque e ON p.id = e.produto_id WHERE e.quantidade < 5 AND p.ativo = TRUE;"
 
 LISTAR_CATEGORIAS = "SELECT id, nome FROM vendas.categorias ORDER BY nome;"
+
+INSERIR_CATEGORIA = "INSERT INTO vendas.categorias (nome) VALUES (%s) RETURNING id;"
+
+INSERIR_PRODUTO = "INSERT INTO vendas.produtos (nome, descricao, preco, categoria_id, fabricado_em_mari, ativo) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id;"
+
+ATUALIZAR_ESTOQUE = "INSERT INTO vendas.estoque (produto_id, quantidade) VALUES (%s, %s) ON CONFLICT (produto_id) DO UPDATE SET quantidade = EXCLUDED.quantidade;"
+
+SELECIONAR_PRODUTO_POR_ID = "SELECT nome, descricao, preco, categoria_id, fabricado_em_mari FROM vendas.produtos WHERE id = %s;"
+
+ATUALIZAR_PRODUTO = "UPDATE vendas.produtos SET nome=%s, descricao=%s, preco=%s, categoria_id=%s, fabricado_em_mari=%s WHERE id=%s;"
 
 # chamada a função (usar json.dumps para items em Python)
 CHAMAR_EFETIVAR_COMPRA = "SELECT * FROM vendas.efetivar_compra(%s, %s, %s, %s::jsonb, %s);"
