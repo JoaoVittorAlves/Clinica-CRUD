@@ -52,6 +52,11 @@ CONSULTAR_PEDIDOS_CLIENTE = "" \
 
 VERIFICAR_DESCONTO_CLIENTE = "SELECT (torce_flamengo OR assiste_one_piece OR nasceu_sousa) FROM cadastros.pacientes WHERE id = %s;"
 
+ATUALIZAR_CRITERIOS_DESCONTO_PACIENTE = "" \
+"UPDATE cadastros.pacientes " \
+"SET torce_flamengo=%s, assiste_one_piece=%s, nasceu_sousa=%s " \
+"WHERE id = %s;"
+
 # =============================================================================
 # OPERAÇÕES NA TABELA MEDICOS
 # =============================================================================
