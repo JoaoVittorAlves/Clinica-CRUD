@@ -988,11 +988,73 @@ def pagina_vendas():
                             st.error(f"Ocorreu um erro inesperado ao efetivar a compra: {error_message}")
 
     with tab_relatorios:
-        st.subheader("Relatório de Vendas Mensal por Vendedor")
+        st.subheader("Dashboard de Vendas Mensal por Vendedor")
+        
         relatorio, desc_rel = db_manager.fetch_query(vendas_queries.REL_VENDAS_POR_VENDEDOR_MES)
-        if relatorio:
+        
+        if not relatorio:
+            st.info("Ainda não há dados de vendas para exibir.")
+        else:
             df_rel = pd.DataFrame(relatorio, columns=[d[0] for d in desc_rel])
-            st.dataframe(df_rel, use_container_width=True)
+            # Converte a coluna de mês para um formato mais legível
+            df_rel['mes'] = pd.to_datetime(df_rel['mes']).dt.strftime('%Y-%m')
+
+            st.divider()
+
+            # --- 1. FILTROS INTERATIVOS ---
+            st.sidebar.header("Filtros do Relatório")
+            
+            # Filtro por Mês
+            meses = sorted(df_rel['mes'].unique(), reverse=True)
+            mes_selecionado = st.sidebar.multiselect("Filtrar por Mês:", options=meses, default=meses)
+            
+            # Filtro por Vendedor
+            vendedores = sorted(df_rel['vendedor'].unique())
+            vendedor_selecionado = st.sidebar.multiselect("Filtrar por Vendedor:", options=vendedores, default=vendedores)
+
+            # Aplica os filtros no DataFrame
+            df_filtrado = df_rel[
+                (df_rel['mes'].isin(mes_selecionado)) &
+                (df_rel['vendedor'].isin(vendedor_selecionado))
+            ]
+
+            if df_filtrado.empty:
+                st.warning("Nenhum dado encontrado para os filtros selecionados.")
+            else:
+                # --- 2. KPIs (INDICADORES CHAVE) ---
+                total_faturado = df_filtrado['valor_total_vendido'].sum()
+                num_total_vendas = df_filtrado['total_vendas'].sum()
+                
+                st.subheader("Resumo do Período Selecionado")
+                col1, col2 = st.columns(2)
+                col1.metric("Faturamento Total", f"R$ {total_faturado:,.2f}")
+                col2.metric("Número de Vendas", f"{num_total_vendas}")
+
+                st.divider()
+
+                # --- 3. GRÁFICOS ---
+                st.subheader("Análise Gráfica")
+                
+                # Agrupa os dados por vendedor para os gráficos
+                df_grafico = df_filtrado.groupby('vendedor').agg(
+                    valor_total_vendido=('valor_total_vendido', 'sum'),
+                    ticket_medio=('ticket_medio', 'mean')
+                ).reset_index()
+
+                col_graf1, col_graf2 = st.columns(2)
+                with col_graf1:
+                    st.write("Valor Total Vendido por Vendedor")
+                    st.bar_chart(df_grafico, x='vendedor', y='valor_total_vendido', use_container_width=True)
+                
+                with col_graf2:
+                    st.write("Ticket Médio por Vendedor")
+                    st.bar_chart(df_grafico, x='vendedor', y='ticket_medio', use_container_width=True)
+
+                st.divider()
+
+                # --- 4. DADOS DETALHADOS ---
+                st.subheader("Dados Detalhados")
+                st.dataframe(df_filtrado, use_container_width=True)
 
 # --- NAVEGAÇÃO PRINCIPAL (SIDEBAR) ---
 def main():
