@@ -330,8 +330,8 @@ INSERT INTO cadastros.especialidades (nome) VALUES
 
 -- Funcionários da Clínica
 INSERT INTO cadastros.funcionarios (nome, email, salario, cargo, tipo_contrato, perfil_acesso_id, cidade, sigla_estado) VALUES
-('Taylor Swift', 'taylor.swift@clinica.com', 2500.00, 'Vendedor', 'CLT', 2, 'São Paulo', 'SP'),
-('Harry Styles', 'harrystyles@clinica.com', 8500.00, 'Diretor Administrativo', 'CLT', 1, 'Recife', 'PE'),
+('Taylor Swift', 'taylor.swift@clinica.com', 2500.00, 'Vendedor', 'CLT', 5, 'São Paulo', 'SP'),
+('Harry Styles', 'harrystyles@clinica.com', 8500.00, 'Diretor Administrativo', 'CLT', 5, 'Recife', 'PE'),
 ('Márcio Tannure', 'marcio.tannure@clinica.com', 12000.00, 'Fisioterapeuta Chefe', 'PJ', 4, 'Rio de Janeiro', 'RJ'),
 ('Georgiana Maria', 'georgiana@hotmail.com', 30000.00, 'Diretora de Markting Digital', 'CLT', 1, 'João Pessoa', 'PB');
 
@@ -349,8 +349,10 @@ INSERT INTO cadastros.pacientes (nome, sexo, email, cpf, telefone, cidade, sigla
 ('Bruno Henrique Pinto', 'M', 'bh27@flamengo.com', '33333333333', '21977777777', 'Rio de Janeiro', 'RJ'),
 ('Pedro Guilherme', 'M', 'pedro9@flamengo.com', '44444444444', '21966666666', 'Cabo Frio', 'RJ');
 
+-- Define um critério de desconto para um paciente para testes
+UPDATE cadastros.pacientes SET torce_flamengo = TRUE WHERE id = 1; 
+
 -- Consultas Agendadas
--- As consultas são agendadas pela recepcionista (funcionario_id = 1)
 INSERT INTO clinico.consultas (paciente_id, medico_id, funcionario_id, data, motivo, diagnostico, status) VALUES
 (1, 1, 1, '2025-09-10 09:00:00', 'Avaliação de performance pré-temporada', 'Condicionamento físico excelente', 'Realizada'),
 (2, 2, 1, '2025-09-12 11:30:00', 'Pancada no joelho esquerdo durante treino', 'Trauma leve, sem lesão ligamentar', 'Realizada'),
@@ -369,6 +371,58 @@ INSERT INTO financeiro.pagamentos (consulta_id, valor, metodo, pago, data_pagame
 (2, 450.00, 'Transferência', TRUE, '2025-10-12 12:00:00'),
 (4, 350.00, 'Cartão', TRUE, '2025-10-18 11:00:00');
 
+-- =============================================================================
+-- === DADOS PARA O MÓDULO DE VENDAS ===
+-- =============================================================================
+
+-- Categorias de Produtos
+INSERT INTO vendas.categorias (id, nome) VALUES
+(1, 'Dermocosméticos'),
+(2, 'Suplementos'),
+(3, 'Higiene Pessoal')
+ON CONFLICT (id) DO UPDATE SET nome = EXCLUDED.nome;
+-- Reseta a sequência para evitar conflitos ao adicionar novas categorias pela interface
+SELECT setval('vendas.categorias_id_seq', (SELECT MAX(id) FROM vendas.categorias));
+
+
+-- Produtos
+INSERT INTO vendas.produtos (id, nome, descricao, preco, categoria_id, fabricado_em_mari) VALUES
+(1, 'Vitamina A', 'Suplemento vitamínico', 50.00, 2, FALSE),
+(2, 'Produto Exemplo 2', NULL, 30.00, NULL, FALSE),
+(3, 'Protetor Solar FPS 60', 'Protetor Solar FPS 60', 100.00, 1, TRUE)
+ON CONFLICT (id) DO UPDATE SET nome = EXCLUDED.nome, descricao = EXCLUDED.descricao, preco = EXCLUDED.preco, categoria_id = EXCLUDED.categoria_id, fabricado_em_mari = EXCLUDED.fabricado_em_mari;
+SELECT setval('vendas.produtos_id_seq', (SELECT MAX(id) FROM vendas.produtos));
+
+-- Estoque Inicial dos Produtos
+INSERT INTO vendas.estoque (produto_id, quantidade) VALUES
+(1, 20), -- Vitamina A
+(2, 15), -- Produto Exemplo 2
+(3, 30)  -- Protetor Solar
+ON CONFLICT (produto_id) DO UPDATE SET quantidade = EXCLUDED.quantidade;
+
+
+-- Vendas de Exemplo (Histórico) para popular os relatórios
+
+-- Venda 1: Para Gabriel Barbosa (cliente_id=1), com desconto de 10%
+INSERT INTO vendas.vendas (id, cliente_id, vendedor_id, data, total_bruto, desconto_aplicado, total_liquido, forma_pagamento, status_pagamento) VALUES
+(1, 1, 1, '2025-09-25 10:00:00', 100.00, 10.00, 90.00, 'Cartão', 'Confirmado')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO vendas.itens_venda (venda_id, produto_id, quantidade, preco_unitario) VALUES
+(1, 3, 1, 100.00); -- 1 Protetor Solar
+
+-- Venda 2: Para Bruno Henrique (cliente_id=3), sem desconto e com múltiplos itens
+INSERT INTO vendas.vendas (id, cliente_id, vendedor_id, data, total_bruto, desconto_aplicado, total_liquido, forma_pagamento, status_pagamento) VALUES
+(2, 3, 1, '2025-09-28 15:30:00', 130.00, 0.00, 130.00, 'PIX', 'Confirmado')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO vendas.itens_venda (venda_id, produto_id, quantidade, preco_unitario) VALUES
+(2, 1, 2, 50.00), -- 2 Vitaminas A
+(2, 2, 1, 30.00); -- 1 Produto Exemplo 2
+
+-- Reseta a sequência da tabela de vendas para o próximo valor disponível
+SELECT setval('vendas.vendas_id_seq', (SELECT MAX(id) FROM vendas.vendas));
+
 -- === 5. VIEWS E STORED PROCEDURES ===
 
 -- View para o relatório mensal de vendas por vendedor
@@ -376,17 +430,21 @@ CREATE OR REPLACE VIEW vendas.vendas_por_vendedor_mes AS
 SELECT
     date_trunc('month', v.data)::date AS mes,
     f.nome AS vendedor,
-    COUNT(v.id) AS total_vendas,
-    SUM(v.total_liquido) AS valor_total_vendido
+    COUNT(DISTINCT v.id) AS total_vendas,
+    SUM(iv.quantidade) AS total_produtos_vendidos,
+    SUM(v.total_liquido) AS valor_total_vendido,
+    -- Calcula o Ticket Médio (valor total / número de vendas)
+    (SUM(v.total_liquido) / COUNT(DISTINCT v.id)) AS ticket_medio
 FROM
     vendas.vendas v
 JOIN
     cadastros.funcionarios f ON v.vendedor_id = f.id
+LEFT JOIN 
+    vendas.itens_venda iv ON v.id = iv.venda_id
 GROUP BY
     mes, vendedor
 ORDER BY
     mes DESC, valor_total_vendido DESC;
-
 
 -- Stored Procedure para efetivar uma compra
 CREATE OR REPLACE FUNCTION vendas.efetivar_compra(
