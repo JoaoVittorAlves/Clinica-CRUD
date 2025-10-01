@@ -111,14 +111,9 @@ CREATE TABLE cadastros.pacientes (
 );
 
 ALTER TABLE cadastros.pacientes
-    ADD COLUMN IF NOT EXISTS torce_flamengo BOOLEAN DEFAULT FALSE;
-
-ALTER TABLE cadastros.pacientes
-    ADD COLUMN IF NOT EXISTS assiste_one_piece BOOLEAN DEFAULT FALSE;
-
-ALTER TABLE cadastros.pacientes
+    ADD COLUMN IF NOT EXISTS torce_flamengo BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS assiste_one_piece BOOLEAN DEFAULT FALSE,
     ADD COLUMN IF NOT EXISTS nasceu_sousa BOOLEAN DEFAULT FALSE;
-
 
 -- Tabela de Consultas (Schema: clinico)
 CREATE TABLE clinico.consultas (
@@ -201,109 +196,6 @@ INSERT INTO vendas.produtos (nome, preco, categoria_id) VALUES
 ('Produto Exemplo 1', 50.00, NULL),
 ('Produto Exemplo 2', 30.00, NULL);
 
--- 3.REGRA DE NEGÓCIO
-
--- 3. REGRA DE NEGÓCIO
-
--- Função para efetivar compra e retornar todas as vendas do cliente
-CREATE OR REPLACE FUNCTION vendas.efetivar_compra(
-    p_cliente_id INTEGER,
-    p_vendedor_id INTEGER,
-    p_forma_pagamento VARCHAR,
-    p_itens JSONB,
-    p_status_pagamento VARCHAR DEFAULT 'Pendente'
-)
-RETURNS TABLE(
-    venda_id INTEGER,
-    data_venda TIMESTAMP,
-    total_bruto NUMERIC,
-    desconto_aplicado NUMERIC,
-    total_liquido NUMERIC,
-    forma_pagamento VARCHAR,
-    status_pagamento VARCHAR
-) AS $$
-DECLARE
-    v_total_bruto NUMERIC := 0;
-    v_desconto NUMERIC := 0;
-    v_total_liquido NUMERIC := 0;
-    v_venda_id INTEGER;
-    v_cliente RECORD;
-    v_item RECORD;
-    v_status_pagamento_local VARCHAR := p_status_pagamento;
-BEGIN
-    -- Verifica se cliente existe
-    SELECT * INTO v_cliente FROM cadastros.pacientes WHERE id = p_cliente_id;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Cliente não encontrado.';
-    END IF;
-
-    -- Verifica se vendedor existe
-    IF NOT EXISTS (SELECT 1 FROM cadastros.funcionarios WHERE id = p_vendedor_id) THEN
-        RAISE EXCEPTION 'Vendedor não encontrado.';
-    END IF;
-
-    -- Verifica se a lista de itens não está vazia
-    IF jsonb_typeof(p_itens) <> 'array' OR jsonb_array_length(p_itens) = 0 THEN
-        RAISE EXCEPTION 'Uma venda deve ter pelo menos 1 item.';
-    END IF;
-
-    -- Calcula total bruto
-    FOR v_item IN 
-        SELECT * FROM jsonb_to_recordset(p_itens) AS (produto_id INTEGER, quantidade INTEGER, preco_unitario NUMERIC) 
-    LOOP
-        v_total_bruto := v_total_bruto + (v_item.quantidade * v_item.preco_unitario);
-    END LOOP;
-
-    -- Regra de desconto: Flamengo, One Piece, Sousa
-    IF v_cliente.torce_flamengo OR v_cliente.assiste_one_piece OR v_cliente.nasceu_sousa THEN
-        v_desconto := v_total_bruto * 0.10; -- 10% de desconto
-    END IF;
-
-    v_total_liquido := v_total_bruto - v_desconto;
-
-    -- Status de pagamento para formas específicas
-    IF p_forma_pagamento IN ('Cartão', 'Boleto', 'PIX', 'Berries') THEN
-        v_status_pagamento_local := 'Pendente';
-    ELSE
-        v_status_pagamento_local := 'Confirmado';
-    END IF;
-
-    -- Cria venda
-    INSERT INTO vendas.vendas (
-        cliente_id, vendedor_id, data, total_bruto, desconto_aplicado, total_liquido, forma_pagamento, status_pagamento
-    )
-    VALUES (
-        p_cliente_id, p_vendedor_id, NOW(), v_total_bruto, v_desconto, v_total_liquido, p_forma_pagamento, v_status_pagamento_local
-    )
-    RETURNING id INTO v_venda_id;
-
-    -- Insere itens da venda
-    FOR v_item IN 
-        SELECT * FROM jsonb_to_recordset(p_itens) AS (produto_id INTEGER, quantidade INTEGER, preco_unitario NUMERIC) 
-    LOOP
-        INSERT INTO vendas.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
-        VALUES (v_venda_id, v_item.produto_id, v_item.quantidade, v_item.preco_unitario);
-    END LOOP;
-
-    -- Retorna todas as vendas do cliente (com dados resumidos)
-    RETURN QUERY
-    SELECT 
-        v.id,
-        v.data,
-        v.total_bruto,
-        v.desconto_aplicado,
-        v.total_liquido,
-        v.forma_pagamento,
-        v.status_pagamento
-    FROM vendas.vendas v
-    WHERE v.cliente_id = p_cliente_id
-    ORDER BY v.data DESC;
-
-END;
-$$ LANGUAGE plpgsql;
-
-
--- ==========================================
 -- Função para consultar todas as vendas de um cliente com itens detalhados
 CREATE OR REPLACE FUNCTION vendas.consultar_vendas_cliente(
     p_cliente_id INTEGER
@@ -356,7 +248,8 @@ INSERT INTO cadastros.perfis_acesso (nome, descricao) VALUES
 ('Administrador', 'Acesso total ao sistema.'),
 ('Recepção', 'Acesso a agendamentos e cadastros de pacientes.'),
 ('Faturamento', 'Acesso a relatórios e gestão de pagamentos.'),
-('Corpo Técnico', 'Acesso a prontuários e agendamentos clínicos.');
+('Corpo Técnico', 'Acesso a prontuários e agendamentos clínicos.'),
+('Vendedor', 'Acesso ao módulo de vendas e estoque.');
 
 -- Especialidades da Clínica
 INSERT INTO cadastros.especialidades (nome) VALUES
@@ -369,7 +262,7 @@ INSERT INTO cadastros.especialidades (nome) VALUES
 
 -- Funcionários da Clínica
 INSERT INTO cadastros.funcionarios (nome, email, salario, cargo, tipo_contrato, perfil_acesso_id, cidade, sigla_estado) VALUES
-('Taylor Swift', 'taylor.swift@clinica.com', 2500.00, 'Recepcionista', 'CLT', 2, 'São Paulo', 'SP'),
+('Taylor Swift', 'taylor.swift@clinica.com', 2500.00, 'Vendedor', 'CLT', 2, 'São Paulo', 'SP'),
 ('Harry Styles', 'harrystyles@clinica.com', 8500.00, 'Diretor Administrativo', 'CLT', 1, 'Recife', 'PE'),
 ('Márcio Tannure', 'marcio.tannure@clinica.com', 12000.00, 'Fisioterapeuta Chefe', 'PJ', 4, 'Rio de Janeiro', 'RJ'),
 ('Georgiana Maria', 'georgiana@hotmail.com', 30000.00, 'Diretora de Markting Digital', 'CLT', 1, 'João Pessoa', 'PB');
@@ -408,14 +301,6 @@ INSERT INTO financeiro.pagamentos (consulta_id, valor, metodo, pago, data_pagame
 (2, 450.00, 'Transferência', TRUE, '2025-10-12 12:00:00'),
 (4, 350.00, 'Cartão', TRUE, '2025-10-18 11:00:00');
 
--- Teste da função efetivar_compra
-SELECT * FROM vendas.efetivar_compra(
-    1, -- cliente_id
-    2, -- vendedor_id
-    'Cartão', -- forma de pagamento
-    '[{"produto_id":1,"quantidade":2,"preco_unitario":50.00}]'::jsonb -- itens
-);
-
 -- === 5. VIEWS E STORED PROCEDURES ===
 
 -- View para o relatório mensal de vendas por vendedor
@@ -447,45 +332,73 @@ RETURNS INTEGER
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    item RECORD;
-    estoque_atual INTEGER;
-    total_bruto_venda NUMERIC(12,2) := 0;
+    total_bruto_venda NUMERIC(12,2);
     desconto_venda NUMERIC(12,2) := 0;
     total_liquido_venda NUMERIC(12,2);
     nova_venda_id INTEGER;
-    cliente_tem_desconto BOOLEAN := FALSE;
+    cliente_tem_desconto BOOLEAN;
+    produto_sem_estoque RECORD;
 BEGIN
+    -- 1. Cria uma tabela temporária para armazenar e manipular os itens do carrinho.
+    --    Esta tabela só existe durante esta transação.
+    CREATE TEMP TABLE itens_carrinho (
+        produto_id INTEGER,
+        quantidade INTEGER,
+        preco_unitario NUMERIC
+    ) ON COMMIT DROP;
+
+    -- 2. Insere os itens do JSON na tabela temporária.
+    INSERT INTO itens_carrinho (produto_id, quantidade, preco_unitario)
+    SELECT produto_id, quantidade, preco_unitario
+    FROM jsonb_to_recordset(p_itens) AS x(produto_id INTEGER, quantidade INTEGER, preco_unitario NUMERIC);
+
+    -- 3. Verifica o estoque de TODOS os produtos de uma só vez.
+    --    Se encontrar algum problema, armazena os detalhes e lança uma exceção.
+    SELECT
+        carrinho.produto_id,
+        carrinho.quantidade AS solicitado,
+        est.quantidade AS disponivel
+    INTO produto_sem_estoque
+    FROM itens_carrinho carrinho
+    LEFT JOIN vendas.estoque est ON carrinho.produto_id = est.produto_id
+    WHERE est.quantidade IS NULL OR est.quantidade < carrinho.quantidade
+    LIMIT 1;
+
+    IF FOUND THEN
+        RAISE EXCEPTION 'Produto ID % sem estoque suficiente. Disponível: %, Solicitado: %',
+            produto_sem_estoque.produto_id,
+            COALESCE(produto_sem_estoque.disponivel, 0),
+            produto_sem_estoque.solicitado;
+    END IF;
+
+    -- 4. Calcula o total bruto a partir da tabela temporária.
+    SELECT SUM(quantidade * preco_unitario) INTO total_bruto_venda FROM itens_carrinho;
+
+    -- 5. Verifica e aplica o desconto.
     SELECT (torce_flamengo OR assiste_one_piece OR nasceu_sousa) INTO cliente_tem_desconto
     FROM cadastros.pacientes WHERE id = p_cliente_id;
-
-    FOR item IN SELECT * FROM jsonb_to_recordset(p_itens) AS x(produto_id INTEGER, quantidade INTEGER, preco_unitario NUMERIC)
-    LOOP
-        SELECT quantidade INTO estoque_atual FROM vendas.estoque WHERE produto_id = item.produto_id FOR UPDATE;
-        
-        IF estoque_atual IS NULL OR estoque_atual < item.quantidade THEN
-            RAISE EXCEPTION 'Produto ID % sem estoque suficiente. Disponível: %, Solicitado: %', item.produto_id, estoque_atual, item.quantidade;
-        END IF;
-
-        total_bruto_venda := total_bruto_venda + (item.quantidade * item.preco_unitario);
-    END LOOP;
 
     IF cliente_tem_desconto THEN
         desconto_venda := total_bruto_venda * 0.10;
     END IF;
     total_liquido_venda := total_bruto_venda - desconto_venda;
 
+    -- 6. Insere o registro principal da venda.
     INSERT INTO vendas.vendas (cliente_id, vendedor_id, data, total_bruto, desconto_aplicado, total_liquido, forma_pagamento, status_pagamento)
     VALUES (p_cliente_id, p_vendedor_id, CURRENT_TIMESTAMP, total_bruto_venda, desconto_venda, total_liquido_venda, p_forma_pagamento, p_status_pagamento)
     RETURNING id INTO nova_venda_id;
 
-    FOR item IN SELECT * FROM jsonb_to_recordset(p_itens) AS x(produto_id INTEGER, quantidade INTEGER, preco_unitario NUMERIC)
-    LOOP
-        INSERT INTO vendas.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
-        VALUES (nova_venda_id, item.produto_id, item.quantidade, item.preco_unitario);
+    -- 7. Insere os itens da venda a partir da tabela temporária.
+    INSERT INTO vendas.itens_venda (venda_id, produto_id, quantidade, preco_unitario)
+    SELECT nova_venda_id, produto_id, quantidade, preco_unitario FROM itens_carrinho;
 
-        UPDATE vendas.estoque SET quantidade = quantidade - item.quantidade WHERE produto_id = item.produto_id;
-    END LOOP;
+    -- 8. ATUALIZA O ESTOQUE de todos os produtos de uma só vez.
+    UPDATE vendas.estoque
+    SET quantidade = estoque.quantidade - carrinho.quantidade
+    FROM itens_carrinho carrinho
+    WHERE estoque.produto_id = carrinho.produto_id;
 
+    -- 9. Retorna o ID da nova venda.
     RETURN nova_venda_id;
 END;
 $$;

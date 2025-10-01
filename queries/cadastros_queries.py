@@ -4,8 +4,8 @@
 
 # 1. Inserir
 INSERIR_PACIENTE = "" \
-"INSERT INTO cadastros.pacientes (nome, sexo, email, cpf, telefone, logradouro, numero, complemento, bairro, cidade, sigla_estado, cep) " \
-"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) " \
+"INSERT INTO cadastros.pacientes (nome, sexo, email, cpf, telefone, logradouro, numero, complemento, bairro, cidade, sigla_estado, cep, torce_flamengo, assiste_one_piece, nasceu_sousa) " \
+"VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) " \
 "RETURNING id;"
 
 # 2. Alterar
@@ -49,6 +49,8 @@ CONSULTAR_PEDIDOS_CLIENTE = "" \
 "FROM vendas.vendas v " \
 "WHERE v.cliente_id = %s " \
 "ORDER BY v.data DESC;"
+
+VERIFICAR_DESCONTO_CLIENTE = "SELECT (torce_flamengo OR assiste_one_piece OR nasceu_sousa) FROM cadastros.pacientes WHERE id = %s;"
 
 # =============================================================================
 # OPERAÇÕES NA TABELA MEDICOS
@@ -242,3 +244,8 @@ SELECIONAR_PERFIL_ACESSO_POR_ID = "" \
 "SELECT * " \
 "FROM cadastros.perfis_acesso " \
 "WHERE id = %s;"
+
+LISTAR_VENDEDORES = "" \
+"SELECT f.id, f.nome FROM cadastros.funcionarios AS f " \
+"JOIN cadastros.perfis_acesso AS p ON f.perfil_acesso_id = p.id " \
+"WHERE p.nome = 'Vendedor' ORDER BY f.nome;"
