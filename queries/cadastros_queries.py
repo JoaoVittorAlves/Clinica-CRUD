@@ -37,6 +37,19 @@ SELECIONAR_PACIENTE_POR_ID = "" \
 "FROM cadastros.pacientes " \
 "WHERE id = %s;"
 
+# Consulta os dados cadastrais completos do cliente
+CONSULTAR_DADOS_CLIENTE = "" \
+"SELECT id, nome, sexo, email, cpf, telefone, cidade, sigla_estado, torce_flamengo, assiste_one_piece, nasceu_sousa " \
+"FROM cadastros.pacientes " \
+"WHERE id = %s;"
+
+# Consulta os pedidos já realizados pelo cliente
+CONSULTAR_PEDIDOS_CLIENTE = "" \
+"SELECT v.id AS venda_id, v.data, v.total_liquido, v.forma_pagamento, v.status_pagamento " \
+"FROM vendas.vendas v " \
+"WHERE v.cliente_id = %s " \
+"ORDER BY v.data DESC;"
+
 # =============================================================================
 # OPERAÇÕES NA TABELA MEDICOS
 # =============================================================================

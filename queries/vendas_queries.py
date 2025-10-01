@@ -19,3 +19,10 @@ CHAMAR_EFETIVAR_COMPRA = "SELECT * FROM vendas.efetivar_compra(%s, %s, %s, %s::j
 
 # Relatório mensal por vendedor (usando a view criada)
 REL_VENDAS_POR_VENDEDOR_MES = "SELECT * FROM vendas.vendas_por_vendedor_mes ORDER BY mes DESC;"
+
+# Detalhar itens de um pedido do cliente
+DETALHAR_ITENS_PEDIDO_CLIENTE = "" \
+"SELECT iv.produto_id, p.nome AS produto, iv.quantidade, iv.preco_unitario " \
+"FROM vendas.itens_venda iv " \
+"JOIN vendas.produtos p ON iv.produto_id = p.id " \
+"WHERE iv.venda_id = %s;"
