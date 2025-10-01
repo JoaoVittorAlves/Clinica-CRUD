@@ -642,15 +642,141 @@ def pagina_vendas():
                             res = db_manager.execute_and_fetch_one(vendas_queries.INSERIR_CATEGORIA, (nome_cat,))
                             if res: st.success(f"Categoria '{nome_cat}' salva com ID {res[0]}.")
                             else: st.error("Erro ao salvar. Nome pode já existir.")
+        with st.expander("✏️ Alterar Produto Cadastrado"):
+            # Carrega os produtos para o selectbox
+            _, produtos_opts_edit = carregar_dados_para_selectbox("SELECT id, nome FROM vendas.produtos WHERE ativo=TRUE ORDER BY nome;")
+            
+            if "Nenhum" in produtos_opts_edit[0]:
+                st.info("Nenhum produto para editar.")
+            else:
+                produto_selecionado_edit = st.selectbox("Selecione um produto para alterar", produtos_opts_edit)
+                produto_id_edit = int(produto_selecionado_edit.split(" - ")[0])
+
+                # Busca os dados atuais do produto selecionado
+                dados_atuais, _ = db_manager.fetch_query(vendas_queries.SELECIONAR_PRODUTO_POR_ID, (produto_id_edit,))
+
+                if dados_atuais:
+                    dados_atuais = dados_atuais[0] # Pega a primeira linha do resultado
+                    
+                    with st.form(key="edit_produto_form", clear_on_submit=True):
+                        st.write(f"Editando: **{dados_atuais[0]}**")
+
+                        novo_nome = st.text_input("Nome do Produto", value=dados_atuais[0])
+                        nova_descricao = st.text_area("Descrição", value=dados_atuais[1])
+                        novo_preco = st.number_input("Preço (R$)", min_value=0.01, format="%.2f", value=float(dados_atuais[2]))
+
+                        # Lógica para o selectbox de categoria
+                        categorias_map, cat_opts_edit = carregar_dados_para_selectbox(vendas_queries.LISTAR_CATEGORIAS)
+                        id_categorias = list(categorias_map.keys())
+                        try:
+                            index_cat_atual = id_categorias.index(dados_atuais[3])
+                        except ValueError:
+                            index_cat_atual = 0 # Categoria padrão caso não encontre
+                        
+                        nova_cat_selecionada = st.selectbox("Categoria", cat_opts_edit, index=index_cat_atual)
+
+                        nova_fab_mari = st.checkbox("Fabricado em Mari?", value=dados_atuais[4])
+
+                        if st.form_submit_button("Salvar Alterações"):
+                            nova_cat_id = int(nova_cat_selecionada.split(" - ")[0])
+                            dados_update = (novo_nome, nova_descricao, novo_preco, nova_cat_id, nova_fab_mari, produto_id_edit)
+                            
+                            if db_manager.execute_query(vendas_queries.ATUALIZAR_PRODUTO, dados_update):
+                                st.success(f"Produto '{novo_nome}' atualizado com sucesso!")
+                                st.rerun()
+                            else:
+                                st.error("Falha ao atualizar o produto.")    
+        with st.expander("🗑️ Remover Produto"):
+            # Carrega os produtos para o selectbox
+            _, produtos_opts_rem = carregar_dados_para_selectbox("SELECT id, nome FROM vendas.produtos WHERE ativo=TRUE ORDER BY nome;")
+
+            if "Nenhum" in produtos_opts_rem[0]:
+                st.info("Nenhum produto ativo para remover.")
+            else:
+                produto_selecionado_rem = st.selectbox("Selecione um produto para remover", produtos_opts_rem, key="rem_prod")
+                
+                if st.button("Remover Produto", type="primary"):
+                    produto_id_rem = int(produto_selecionado_rem.split(" - ")[0])
+                    st.session_state.confirm_delete = {'type': 'produto', 'id': produto_id_rem}
+
+            # Lógica de confirmação que já existe em outras partes do app
+            if st.session_state.get('confirm_delete', {}).get('type') == 'produto':
+                produto_id_rem = st.session_state.confirm_delete['id']
+                st.warning(f"Tem certeza de que deseja remover o produto com ID {produto_id_rem}? Ele ficará inativo e não aparecerá mais nas vendas.")
+                
+                col_conf, col_canc = st.columns(2)
+                with col_conf:
+                    if st.button("Sim, remover"):
+                        if db_manager.execute_query(vendas_queries.REMOVER_PRODUTO, (produto_id_rem,)):
+                            st.success("Produto removido (inativado) com sucesso!")
+                            st.session_state.confirm_delete = {'type': None, 'id': None}
+                            st.rerun()
+                        else:
+                            st.error("Falha ao remover o produto.")
+                with col_canc:
+                    if st.button("Cancelar"):
+                        st.session_state.confirm_delete = {'type': None, 'id': None}
+                        st.rerun()               
 
         st.markdown("---")
 
-        # --- BLOCO PARA EXIBIR A TABELA DE ESTOQUE ---
+        # --- BLOCO PARA EXIBIR A TABELA DE ESTOQUE COM BUSCA E FILTROS ---
         st.subheader("Estoque de Produtos")
-        estoque, desc_est = db_manager.fetch_query(vendas_queries.LISTAR_TODOS_PRODUTOS)
+        busca_produto = st.text_input("🔎 Buscar produto por nome:")
+
+        # Inicializa as variáveis
+        estoque = None
+        desc_est = None
+
+        if busca_produto:
+            # Se o campo de busca por nome estiver preenchido, ele tem prioridade
+            estoque, desc_est = db_manager.fetch_query(vendas_queries.BUSCAR_PRODUTOS_POR_NOME, (f"%{busca_produto}%",))
+        else:
+            # Caso contrário, exibe os outros filtros
+            st.markdown("---")
+            tipo_filtro = st.radio(
+                "Filtros Adicionais:",
+                ["Listar Todos", "Por Categoria", "Fabricados em Mari", "Estoque Baixo (< 5)"],
+                horizontal=True,
+                key="filtro_produtos"
+            )
+
+            if tipo_filtro == "Listar Todos":
+                estoque, desc_est = db_manager.fetch_query(vendas_queries.LISTAR_TODOS_PRODUTOS)
+            
+            elif tipo_filtro == "Por Categoria":
+                _, cat_opts_filter = carregar_dados_para_selectbox(vendas_queries.LISTAR_CATEGORIAS)
+                if "Nenhum" in cat_opts_filter[0]:
+                    st.warning("Nenhuma categoria cadastrada.")
+                else:
+                    categoria_selecionada_filtro = st.selectbox("Selecione a categoria", cat_opts_filter)
+                    cat_nome = categoria_selecionada_filtro.split(" - ")[1]
+                    estoque, desc_est = db_manager.fetch_query(vendas_queries.BUSCAR_PRODUTOS_POR_CATEGORIA, (cat_nome,))
+
+            elif tipo_filtro == "Fabricados em Mari":
+                estoque, desc_est = db_manager.fetch_query(vendas_queries.BUSCAR_PRODUTOS_FAB_MARI)
+
+            elif tipo_filtro == "Estoque Baixo (< 5)":
+                estoque, desc_est = db_manager.fetch_query(vendas_queries.BUSCAR_PRODUTOS_ESTOQUE_BAIXO)
+
+        # Exibe os resultados
+        st.markdown("---")
         if estoque:
             df_est = pd.DataFrame(estoque, columns=[d[0] for d in desc_est])
             st.dataframe(df_est, use_container_width=True)
+        else:
+            st.info("Nenhum produto encontrado com os critérios selecionados.")
+
+        # --- BLOCO PARA LISTAR AS CATEGORIAS CADASTRADAS ---
+        st.markdown("---")
+        st.subheader("Categorias Cadastradas")
+        categorias, desc_cat = db_manager.fetch_query(vendas_queries.LISTAR_CATEGORIAS)
+
+        if categorias:
+            df_cat = pd.DataFrame(categorias, columns=[d[0] for d in desc_cat])
+            st.dataframe(df_cat, use_container_width=True)
+        else:
+            st.info("Nenhuma categoria cadastrada.")
 
         # --- BLOCO PARA ATUALIZAR O ESTOQUE MANUALMENTE ---
         st.markdown("---")
