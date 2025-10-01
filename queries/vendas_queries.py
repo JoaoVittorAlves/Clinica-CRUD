@@ -34,3 +34,6 @@ DETALHAR_ITENS_PEDIDO_CLIENTE = "" \
 "FROM vendas.itens_venda iv " \
 "JOIN vendas.produtos p ON iv.produto_id = p.id " \
 "WHERE iv.venda_id = %s;"
+
+REMOVER_PRODUTO = "UPDATE vendas.produtos SET ativo = FALSE WHERE id = %s;"
+
